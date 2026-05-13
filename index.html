@@ -269,7 +269,7 @@ h1 {
   transform: translateY(6px);
   transition: opacity 0.35s, transform 0.35s;
   line-height: 1;
-  color: var(--text);
+  color: #e07282;
 }
 .card-score.show { opacity: 1; transform: translateY(0); }
 .card-score.question { color: var(--muted); letter-spacing: 0.05em; }
@@ -292,19 +292,6 @@ h1 {
 }
 .card-overlay.flash { opacity: 1; }
 
-.card-tag {
-  position: absolute;
-  top: 8px; left: 8px;
-  font-size: 0.63rem;
-  font-weight: 600;
-  padding: 2px 7px;
-  border-radius: 99px;
-  pointer-events: none;
-  letter-spacing: 0.03em;
-  z-index: 1;
-}
-.card-tag.old   { background: rgba(255,255,255,0.75); color: var(--muted); }
-.card-tag.fresh { background: rgba(240,145,153,0.13); color: var(--pink-deep); }
 
 /* ── Settings ── */
 .settings {
@@ -454,6 +441,14 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
   transition: opacity 0.15s, transform 0.15s;
 }
 #go-restart:hover { opacity: 0.88; transform: translateY(-1px); }
+#go-share {
+  display: block; width: 100%; margin-top: 10px;
+  background: var(--surface2); color: var(--muted);
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 9px 0; font-size: 0.85rem; cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+#go-share:hover { border-color: var(--pink); color: var(--pink); }
 
 .help-box h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 18px; color: var(--text); }
 .help-steps { list-style: none; text-align: left; display: flex; flex-direction: column; gap: 12px; }
@@ -529,7 +524,6 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
   <div class="card" id="card-a" onclick="onSelect('a')">
     <div class="card-cover-wrap"><img class="card-cover" id="img-a" alt=""></div>
     <div class="card-overlay" id="overlay-a"></div>
-    <div class="card-tag" id="tag-a"></div>
     <div class="card-body">
       <div class="card-name" id="name-a"></div>
       <div class="card-date" id="date-a"></div>
@@ -543,7 +537,6 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
   <div class="card" id="card-b" onclick="onSelect('b')">
     <div class="card-cover-wrap"><img class="card-cover" id="img-b" alt=""></div>
     <div class="card-overlay" id="overlay-b"></div>
-    <div class="card-tag" id="tag-b"></div>
     <div class="card-body">
       <div class="card-name" id="name-b"></div>
       <div class="card-date" id="date-b"></div>
@@ -596,6 +589,7 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
     <p id="go-stats"></p>
     <p id="go-best" style="font-size:0.78rem;color:var(--muted);margin-bottom:20px;line-height:1.9;"></p>
     <button id="go-restart">再来一局</button>
+    <button id="go-share" onclick="shareResult()">保存结果</button>
   </div>
 </div>
 
@@ -625,11 +619,12 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
 
 <script>
 const LOCAL_SIGMA=0.40,SIGMA_MIN=0.10,WILD_CHANCE=0.30,GAUSS_MU=6.75,GAUSS_SIG=0.94;
+const SITE_URL=''; // fill in your deployed URL, e.g. 'bangumi-master.netlify.app'
 let allAnime=[],anime=[],animeByRank=[],rankPosById={},N=0;
 const BIN_EDGES=[6.5,7.5];let bins=[];
 const MAX_LIVES=5,MASTER_GOAL=50;
 let slots={a:null,b:null},stats={correct:0,total:0,streak:0},maxStreak=0,lives=MAX_LIVES,phase='loading',firstRound=true,seenIds=new Set();
-let bestTotal=0,bestStreak=0;
+let bestTotal=0,bestStreak=0,goState=null;
 
 function loadBest(){
   bestTotal=parseInt(localStorage.getItem('bgm_best_total')||'0');
@@ -682,8 +677,6 @@ function fillCard(s,e,sm){
   $('name-'+s).textContent=e.name_cn||e.name;
   $('date-'+s).textContent=formatDate(e.air_date);
   $('card-'+s).className='card';
-  $('tag-'+s).textContent=s==='a'?'上轮存活':'NEW';
-  $('tag-'+s).className='card-tag '+(s==='a'?'old':'fresh');
   $('badge-'+s).textContent='';$('badge-'+s).classList.remove('show');
   const el=$('score-'+s);el.classList.remove('question');
   if(sm==='score'){el.textContent=e.score.toFixed(1);el.classList.add('show');}
@@ -730,6 +723,7 @@ function gameOver(){
   $('go-best').innerHTML=bestTotal>0&&!(newBestTotal&&newBestStreak)
     ?'历史最佳：完成 '+bestTotal+' 题 &nbsp;·&nbsp; 连击 '+bestStreak
     :'';
+  goState={isMaster,total:stats.total,maxStreak,acc,bestTotal,bestStreak,newBestTotal,newBestStreak};
   $('gameover').classList.add('show');
 }
 
@@ -835,6 +829,95 @@ function initControls(){
   $('btn-help').addEventListener('click',()=>$('help-overlay').classList.add('show'));
   $('btn-help-close').addEventListener('click',()=>$('help-overlay').classList.remove('show'));
   $('help-overlay').addEventListener('click',e=>{if(e.target===$('help-overlay'))$('help-overlay').classList.remove('show');});
+}
+
+function drawResultCard(){
+  const s=goState;
+  const W=360,H=500,DPR=2;
+  const cv=document.createElement('canvas');
+  cv.width=W*DPR;cv.height=H*DPR;
+  const ctx=cv.getContext('2d');
+  ctx.scale(DPR,DPR);
+  const FONT='"PingFang SC","Hiragino Sans GB","Noto Sans CJK SC","Microsoft YaHei",sans-serif';
+
+  // Background
+  ctx.fillStyle='#ffffff';
+  ctx.fillRect(0,0,W,H);
+
+  // Top accent bar
+  const barGrad=ctx.createLinearGradient(0,0,W,0);
+  barGrad.addColorStop(0,'#f09199');barGrad.addColorStop(1,'#e07282');
+  ctx.fillStyle=barGrad;
+  ctx.fillRect(0,0,W,7);
+
+  // Game title
+  ctx.font='13px '+FONT;
+  ctx.fillStyle='#8e8ea0';
+  ctx.textAlign='center';
+  ctx.fillText('目标是Bangumi大师',W/2,44);
+
+  // Icon
+  ctx.font='54px serif';
+  ctx.fillText(s.isMaster?'🏆':'🎬',W/2,108);
+
+  // Result heading
+  ctx.font='bold 22px '+FONT;
+  if(s.isMaster){
+    const tg=ctx.createLinearGradient(W/2-80,0,W/2+80,0);
+    tg.addColorStop(0,'#f09199');tg.addColorStop(1,'#e07282');
+    ctx.fillStyle=tg;
+  }else{
+    ctx.fillStyle='#1c1c2e';
+  }
+  ctx.fillText(s.isMaster?'你是Bangumi大师！':'游戏结束',W/2,148);
+
+  // Divider
+  ctx.strokeStyle='#d8d8e8';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(48,168);ctx.lineTo(W-48,168);ctx.stroke();
+
+  // Stats rows
+  const rows=[
+    ['完成题目',s.total+' 题'],
+    ['最高连击',s.maxStreak+' 连'],
+    ['正确率',s.acc+'%'],
+  ];
+  let ry=212;
+  rows.forEach(([label,val])=>{
+    ctx.font='13px '+FONT;ctx.fillStyle='#8e8ea0';ctx.textAlign='left';
+    ctx.fillText(label,72,ry);
+    ctx.font='bold 14px '+FONT;ctx.fillStyle='#1c1c2e';ctx.textAlign='right';
+    ctx.fillText(val,W-72,ry);
+    ry+=38;
+  });
+
+  // Historical best
+  if(s.bestTotal>0){
+    ctx.strokeStyle='#d8d8e8';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(48,ry+8);ctx.lineTo(W-48,ry+8);ctx.stroke();
+    ctx.font='12px '+FONT;ctx.fillStyle='#8e8ea0';ctx.textAlign='center';
+    ctx.fillText('历史最佳：完成 '+s.bestTotal+' 题  ·  连击 '+s.bestStreak,W/2,ry+38);
+  }
+
+  // Footer
+  ctx.font='11px '+FONT;ctx.fillStyle='#c8c8d8';ctx.textAlign='center';
+  const footer=SITE_URL?'数据来源：Bangumi · bgm.tv  |  '+SITE_URL:'数据来源：Bangumi · bgm.tv';
+  ctx.fillText(footer,W/2,H-18);
+
+  return cv;
+}
+
+async function shareResult(){
+  const cv=drawResultCard();
+  const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
+  const file=new File([blob],'bangumi-master.png',{type:'image/png'});
+  const isMobile=navigator.maxTouchPoints>0;
+  if(isMobile&&navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file],title:'目标是Bangumi大师'});return;}catch(e){if(e.name==='AbortError')return;}
+  }
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='bangumi-master.png';a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 
 async function init(){
