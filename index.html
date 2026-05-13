@@ -909,11 +909,6 @@ function drawResultCard(){
 async function shareResult(){
   const cv=drawResultCard();
   const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
-  const file=new File([blob],'bangumi-master.png',{type:'image/png'});
-  const isMobile=navigator.maxTouchPoints>0;
-  if(isMobile&&navigator.canShare&&navigator.canShare({files:[file]})){
-    try{await navigator.share({files:[file],title:'目标是Bangumi大师'});return;}catch(e){if(e.name==='AbortError')return;}
-  }
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
   a.href=url;a.download='bangumi-master.png';a.click();
