@@ -191,10 +191,12 @@ h1 {
   box-shadow: 0 2px 12px rgba(0,0,0,0.07);
 }
 
-.card:hover:not(.locked) {
-  transform: translateY(-6px);
-  border-color: #c8c8da;
-  box-shadow: 0 16px 40px rgba(0,0,0,0.14);
+@media (hover: hover) {
+  .card:hover:not(.locked) {
+    transform: translateY(-6px);
+    border-color: #c8c8da;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.14);
+  }
 }
 
 .card.locked { cursor: default; }
