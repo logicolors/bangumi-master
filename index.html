@@ -225,6 +225,7 @@ h1 {
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: opacity 0.2s;
 }
 .card-cover-wrap::after {
   content: '';
@@ -444,7 +445,7 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
 }
 #go-restart:hover { opacity: 0.88; transform: translateY(-1px); }
 #go-share {
-  display: block; width: 160px; margin-top: 10px;
+  display: block; width: 160px; margin: 10px auto 0;
   background: var(--surface2); color: var(--muted);
   border: 1px solid var(--border); border-radius: 10px;
   padding: 9px 0; font-size: 0.85rem; cursor: pointer;
@@ -680,7 +681,11 @@ function formatDate(d){
 }
 
 function fillCard(s,e,sm){
-  $('img-'+s).src=e.image_url||'';
+  const img=$('img-'+s);
+  img.style.opacity='0';
+  img.onload=()=>{img.style.opacity='1';};
+  img.onerror=()=>{};
+  img.src=e.image_url||'';
   $('name-'+s).textContent=e.name_cn||e.name;
   $('date-'+s).textContent=formatDate(e.air_date);
   $('card-'+s).className='card';
