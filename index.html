@@ -483,10 +483,15 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
 }
 
 @media (max-width: 520px) {
-  .arena { flex-direction: column; gap: 10px; }
-  .vs-col { width: 100%; height: 28px; }
-  .vs-badge { width: 28px; height: 28px; font-size: 0.65rem; }
-  .card-score { font-size: 1.6rem; }
+  .arena { gap: 6px; }
+  .vs-col { width: 28px; }
+  .vs-badge { width: 26px; height: 26px; font-size: 0.6rem; }
+  .card-cover-wrap { aspect-ratio: 2 / 3; }
+  .card-body { padding: 8px 9px 10px; }
+  .card-name { font-size: 0.75rem; min-height: 2.2em; }
+  .card-date { font-size: 0.68rem; }
+  .card-score { font-size: 1.5rem; }
+  .card-score-wrap { margin-top: 6px; height: 2rem; }
   .gameover-box { padding: 36px 28px; }
   .help-box { padding: 28px 24px; }
   h1 { font-size: 1.45rem; }
