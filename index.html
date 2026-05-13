@@ -680,7 +680,12 @@ function formatDate(d){
 }
 
 function fillCard(s,e,sm){
-  $('img-'+s).src=e.image_url||'';
+  const img=$('img-'+s);
+  img.style.opacity='0';
+  img.onload=()=>{img.style.opacity='1';};
+  img.onerror=()=>{img.style.opacity='1';};
+  img.src=e.image_url||'';
+  if(img.complete&&img.naturalWidth>0)img.style.opacity='1';
   $('name-'+s).textContent=e.name_cn||e.name;
   $('date-'+s).textContent=formatDate(e.air_date);
   $('card-'+s).className='card';
