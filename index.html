@@ -440,11 +440,11 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
   background: linear-gradient(135deg, var(--pink), var(--pink-deep));
   color: #fff; border: none; border-radius: 10px;
   padding: 11px 36px; font-size: 0.9rem; font-weight: 600; cursor: pointer;
-  transition: opacity 0.15s, transform 0.15s;
+  transition: opacity 0.15s, transform 0.15s; width: 160px;
 }
 #go-restart:hover { opacity: 0.88; transform: translateY(-1px); }
 #go-share {
-  display: block; width: 100%; margin-top: 10px;
+  display: block; width: 160px; margin-top: 10px;
   background: var(--surface2); color: var(--muted);
   border: 1px solid var(--border); border-radius: 10px;
   padding: 9px 0; font-size: 0.85rem; cursor: pointer;
@@ -622,7 +622,7 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
   </div>
 </div>
 
-<div class="hint">数据来源：Bangumi &nbsp;·&nbsp; 灵感来源：<a href="https://rule34dle.vercel.app/" target="_blank" rel="noopener" style="color:#0084b4;text-decoration:none;">rule34dle</a></div>
+<div class="hint">数据来源：<a href="https://bangumi.tv/" target="_blank" rel="noopener" style="color:#0084b4;text-decoration:none;">Bangumi</a> &nbsp;·&nbsp; 灵感来源：<a href="https://rule34dle.vercel.app/" target="_blank" rel="noopener" style="color:#0084b4;text-decoration:none;">rule34dle</a></div>
 
 <script>
 const LOCAL_SIGMA=0.40,SIGMA_MIN=0.10,WILD_CHANCE=0.30,GAUSS_MU=6.75,GAUSS_SIG=0.94;
