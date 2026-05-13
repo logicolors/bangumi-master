@@ -480,6 +480,13 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
 }
 .help-close:hover { background: var(--border); }
 
+.new-record {
+  color: var(--pink);
+  font-weight: 700;
+  font-size: 0.68rem;
+  margin-left: 4px;
+}
+
 @media (max-width: 520px) {
   .arena { flex-direction: column; gap: 10px; }
   .vs-col { width: 100%; height: 28px; }
@@ -587,6 +594,7 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
     <span class="gameover-icon" id="go-icon">🎬</span>
     <h2 id="go-title">游戏结束</h2>
     <p id="go-stats"></p>
+    <p id="go-best" style="font-size:0.78rem;color:var(--muted);margin-bottom:20px;line-height:1.9;"></p>
     <button id="go-restart">再来一局</button>
   </div>
 </div>
@@ -621,6 +629,16 @@ let allAnime=[],anime=[],animeByRank=[],rankPosById={},N=0;
 const BIN_EDGES=[6.5,7.5];let bins=[];
 const MAX_LIVES=5,MASTER_GOAL=50;
 let slots={a:null,b:null},stats={correct:0,total:0,streak:0},maxStreak=0,lives=MAX_LIVES,phase='loading',firstRound=true,seenIds=new Set();
+let bestTotal=0,bestStreak=0;
+
+function loadBest(){
+  bestTotal=parseInt(localStorage.getItem('bgm_best_total')||'0');
+  bestStreak=parseInt(localStorage.getItem('bgm_best_streak')||'0');
+}
+function saveBest(){
+  localStorage.setItem('bgm_best_total',bestTotal);
+  localStorage.setItem('bgm_best_streak',bestStreak);
+}
 
 function randn(){const u=1-Math.random(),v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
 
@@ -695,15 +713,23 @@ function gameOver(){
   phase='gameover';
   const acc=stats.total?Math.round(stats.correct/stats.total*100):0;
   const isMaster=stats.total>=MASTER_GOAL;
+  const newBestTotal=stats.total>bestTotal;
+  const newBestStreak=maxStreak>bestStreak;
+  if(newBestTotal)bestTotal=stats.total;
+  if(newBestStreak)bestStreak=maxStreak;
+  if(newBestTotal||newBestStreak)saveBest();
   $('go-icon').textContent=isMaster?'🏆':'🎬';
   const t=$('go-title');t.textContent=isMaster?'你是Bangumi大师！':'游戏结束';
   t.className=isMaster?'is-master':'';
   $('go-stats').innerHTML=
-    '完成题目 <strong>'+stats.total+'</strong> 题<br>'+
-    '最高连击 <strong>'+maxStreak+'</strong> 连<br>'+
+    '完成题目 <strong>'+stats.total+'</strong> 题'+(newBestTotal?'<span class="new-record">新纪录！</span>':'')+'<br>'+
+    '最高连击 <strong>'+maxStreak+'</strong> 连'+(newBestStreak?'<span class="new-record">新纪录！</span>':'')+'<br>'+
     (isMaster
       ?'<span style="color:var(--pink)">正确率 '+acc+'% — 恭喜！🎉</span>'
       :'正确率 <strong>'+acc+'%</strong>');
+  $('go-best').innerHTML=bestTotal>0&&!(newBestTotal&&newBestStreak)
+    ?'历史最佳：完成 '+bestTotal+' 题 &nbsp;·&nbsp; 连击 '+bestStreak
+    :'';
   $('gameover').classList.add('show');
 }
 
@@ -813,6 +839,7 @@ function initControls(){
 
 async function init(){
   initControls();
+  loadBest();
   allAnime=await fetch('data/anime_list.json').then(r=>r.json());
   $('loading').style.display='none';
   restart();
