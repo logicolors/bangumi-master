@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>目标是Bangumi大师 · 评分挑战</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #f2f2f7;
+  --surface:   #ffffff;
+  --surface2:  #f2f2f7;
+  --border:    #d8d8e8;
+  --text:      #1c1c2e;
+  --muted:     #8e8ea0;
+  --green:     #1fa85a;
+  --red:       #e0344a;
+  --pink:      #f09199;   /* Bangumi accent */
+  --pink-deep: #e07282;   /* slightly deeper for gradients/hover */
+  --yellow:    #c8900a;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 12px 48px;
+}
+
+/* ── Accent bar ── */
+.accent-bar {
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--pink), var(--pink-deep), var(--pink));
+  background-size: 200% 100%;
+  animation: shimmer 4s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+/* ── Header ── */
+header {
+  width: 100%;
+  max-width: 840px;
+  padding: 22px 0 6px;
+  text-align: center;
+  position: relative;
+}
+
+h1 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  background: linear-gradient(135deg, var(--pink) 0%, var(--pink-deep) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.subtitle {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-top: 5px;
+  letter-spacing: 0.04em;
+}
+
+#btn-help {
+  position: absolute;
+  top: 22px;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, color 0.15s;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+#btn-help:hover { border-color: var(--pink); color: var(--pink); }
+
+/* ── Stats bar ── */
+.stats {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0 0;
+  flex-wrap: wrap;
+}
+
+.stat-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 5px 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.stat-val {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  transition: transform 0.15s;
+  min-width: 1.4ch;
+  text-align: center;
+}
+.stat-val.bump { transform: scale(1.35); }
+
+.stat-label {
+  font-size: 0.68rem;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+#st-lives {
+  font-size: 0.95rem;
+  letter-spacing: 1px;
+  color: var(--red);
+}
+
+/* ── Prompt ── */
+.prompt {
+  font-size: 0.88rem;
+  color: var(--muted);
+  margin: 18px 0 14px;
+  min-height: 1.3em;
+  text-align: center;
+  transition: color 0.3s;
+}
+.prompt.correct { color: var(--green); }
+.prompt.wrong   { color: var(--red); }
+
+/* ── Arena ── */
+.arena {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
+  max-width: 840px;
+}
+
+.vs-col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+}
+.vs-badge {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.03em;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+/* ── Card ── */
+.card {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.18s ease, border-color 0.25s, box-shadow 0.25s;
+  user-select: none;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+}
+
+.card:hover:not(.locked) {
+  transform: translateY(-6px);
+  border-color: #c8c8da;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.14);
+}
+
+.card.locked { cursor: default; }
+
+.card.state-correct {
+  border-color: var(--green);
+  box-shadow: 0 0 0 2px var(--green), 0 12px 32px rgba(31,168,90,0.12);
+}
+.card.state-wrong {
+  border-color: var(--red);
+  box-shadow: 0 0 0 2px var(--red);
+}
+.card.state-winner {
+  border-color: var(--pink);
+  box-shadow: 0 0 0 2px var(--pink), 0 12px 32px rgba(240,145,153,0.15);
+}
+
+.card-cover-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  background: var(--surface2);
+}
+.card-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.card-cover-wrap::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 35%;
+  background: linear-gradient(transparent, rgba(255,255,255,0.6));
+  pointer-events: none;
+}
+
+.card-body { padding: 12px 14px 14px; }
+
+.card-name {
+  font-size: 0.87rem;
+  font-weight: 600;
+  line-height: 1.45;
+  min-height: 2.5em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--text);
+}
+
+.card-date {
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-top: 3px;
+  margin-bottom: 1px;
+}
+
+.card-score-wrap {
+  margin-top: 10px;
+  height: 2.6rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-score {
+  font-size: 2rem;
+  font-weight: 800;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.35s, transform 0.35s;
+  line-height: 1;
+  color: var(--text);
+}
+.card-score.show { opacity: 1; transform: translateY(0); }
+.card-score.question { color: var(--muted); letter-spacing: 0.05em; }
+
+.score-badge {
+  font-size: 1.3rem;
+  opacity: 0;
+  transition: opacity 0.25s 0.2s;
+}
+.score-badge.show { opacity: 1; }
+
+.card-overlay {
+  position: absolute;
+  inset: 0;
+  background: var(--surface);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s;
+  border-radius: 16px;
+}
+.card-overlay.flash { opacity: 1; }
+
+.card-tag {
+  position: absolute;
+  top: 8px; left: 8px;
+  font-size: 0.63rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 99px;
+  pointer-events: none;
+  letter-spacing: 0.03em;
+  z-index: 1;
+}
+.card-tag.old   { background: rgba(255,255,255,0.75); color: var(--muted); }
+.card-tag.fresh { background: rgba(240,145,153,0.13); color: var(--pink-deep); }
+
+/* ── Settings ── */
+.settings {
+  width: 100%;
+  max-width: 840px;
+  margin-top: 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+}
+
+.settings summary {
+  padding: 9px 14px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.settings summary::-webkit-details-marker { display: none; }
+.settings[open] summary { border-bottom: 1px solid var(--border); }
+.settings summary .chevron {
+  margin-left: auto;
+  transition: transform 0.2s;
+  font-size: 0.7rem;
+  opacity: 0.5;
+}
+.settings[open] summary .chevron { transform: rotate(180deg); }
+
+.settings-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 14px 16px;
+}
+
+.param {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+  flex: 1;
+}
+.param-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+}
+.param-label strong { color: var(--text); font-weight: 700; }
+input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
+.param-desc { font-size: 0.68rem; color: var(--muted); line-height: 1.4; }
+
+.settings-sep { width: 100%; height: 1px; background: var(--border); margin: 2px 0; }
+
+.param-checks { gap: 8px; }
+.param-checks label {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 0.8rem; cursor: pointer;
+}
+.param-checks input[type=checkbox] {
+  width: 15px; height: 15px; accent-color: var(--pink); cursor: pointer;
+}
+
+.param-restart { justify-content: flex-end; }
+#btn-restart {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+#btn-restart:hover { background: var(--pink); border-color: var(--pink); color: #fff; }
+
+/* ── Footer ── */
+.hint {
+  margin-top: 16px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-align: center;
+  opacity: 0.7;
+}
+
+/* ── Loading ── */
+#loading {
+  position: fixed; inset: 0; background: var(--bg);
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 14px; font-size: 0.9rem; color: var(--muted); z-index: 99;
+}
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--border); border-top-color: var(--pink);
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Modals ── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(200,200,220,0.55); backdrop-filter: blur(4px);
+  flex-direction: column; align-items: center; justify-content: center; z-index: 100;
+}
+.modal-overlay.show { display: flex; }
+
+.gameover-box, .help-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.14);
+  animation: popIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+.gameover-box { text-align: center; padding: 44px 56px; max-width: 400px; width: 90%; }
+.help-box { padding: 36px 44px; max-width: 400px; width: 90%; }
+
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.gameover-icon {
+  font-size: 3.2rem; margin-bottom: 14px; display: block;
+  animation: iconPop 0.4s 0.1s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+@keyframes iconPop { from { transform: scale(0); } to { transform: scale(1); } }
+
+.gameover-box h2 { font-size: 1.45rem; font-weight: 800; margin-bottom: 6px; color: var(--text); }
+.gameover-box h2.is-master {
+  background: linear-gradient(135deg, var(--pink), var(--pink-deep));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+
+#go-stats { color: var(--muted); font-size: 0.88rem; line-height: 2.1; margin: 14px 0 26px; }
+#go-stats strong { color: var(--text); }
+
+#go-restart {
+  background: linear-gradient(135deg, var(--pink), var(--pink-deep));
+  color: #fff; border: none; border-radius: 10px;
+  padding: 11px 36px; font-size: 0.9rem; font-weight: 600; cursor: pointer;
+  transition: opacity 0.15s, transform 0.15s;
+}
+#go-restart:hover { opacity: 0.88; transform: translateY(-1px); }
+
+.help-box h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 18px; color: var(--text); }
+.help-steps { list-style: none; text-align: left; display: flex; flex-direction: column; gap: 12px; }
+.help-steps li {
+  display: flex; gap: 12px; align-items: flex-start;
+  font-size: 0.86rem; color: var(--muted); line-height: 1.5;
+}
+.help-steps li .step-num {
+  flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--surface2); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.72rem; font-weight: 700; color: var(--pink); margin-top: 1px;
+}
+.help-tip {
+  margin-top: 16px; padding: 10px 14px;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  font-size: 0.78rem; color: var(--muted); line-height: 1.5; text-align: left;
+}
+.help-close {
+  margin-top: 16px; width: 100%;
+  background: var(--surface2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 9px 0; font-size: 0.85rem; cursor: pointer;
+  transition: background 0.15s;
+}
+.help-close:hover { background: var(--border); }
+
+@media (max-width: 520px) {
+  .arena { flex-direction: column; gap: 10px; }
+  .vs-col { width: 100%; height: 28px; }
+  .vs-badge { width: 28px; height: 28px; font-size: 0.65rem; }
+  .card-score { font-size: 1.6rem; }
+  .gameover-box { padding: 36px 28px; }
+  .help-box { padding: 28px 24px; }
+  h1 { font-size: 1.45rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="accent-bar"></div>
+<div id="loading"><div class="spinner"></div><span>加载中…</span></div>
+
+<header>
+  <h1>目标是Bangumi大师</h1>
+  <p class="subtitle">Bangumi Master &nbsp;·&nbsp; 哪部番剧的评分更高？</p>
+  <button id="btn-help" title="玩法说明">?</button>
+  <div class="stats">
+    <div class="stat-chip">
+      <span class="stat-val" id="st-lives">♥♥♥♥♥</span>
+      <span class="stat-label">机会</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-val" id="st-streak">0</span>
+      <span class="stat-label">连击</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-val" id="st-total">0</span>
+      <span class="stat-label">已答</span>
+    </div>
+  </div>
+</header>
+
+<div class="prompt" id="prompt">哪部番剧的评分更高？</div>
+
+<div class="arena">
+  <div class="card" id="card-a" onclick="onSelect('a')">
+    <div class="card-cover-wrap"><img class="card-cover" id="img-a" alt=""></div>
+    <div class="card-overlay" id="overlay-a"></div>
+    <div class="card-tag" id="tag-a"></div>
+    <div class="card-body">
+      <div class="card-name" id="name-a"></div>
+      <div class="card-date" id="date-a"></div>
+      <div class="card-score-wrap">
+        <div class="card-score" id="score-a"></div>
+        <div class="score-badge" id="badge-a"></div>
+      </div>
+    </div>
+  </div>
+  <div class="vs-col"><div class="vs-badge">VS</div></div>
+  <div class="card" id="card-b" onclick="onSelect('b')">
+    <div class="card-cover-wrap"><img class="card-cover" id="img-b" alt=""></div>
+    <div class="card-overlay" id="overlay-b"></div>
+    <div class="card-tag" id="tag-b"></div>
+    <div class="card-body">
+      <div class="card-name" id="name-b"></div>
+      <div class="card-date" id="date-b"></div>
+      <div class="card-score-wrap">
+        <div class="card-score" id="score-b"></div>
+        <div class="score-badge" id="badge-b"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<details class="settings">
+  <summary>⚙ 过滤设置 <span class="chevron">▼</span></summary>
+  <div class="settings-body">
+    <div class="param">
+      <div class="param-label">最低评分人数 <strong id="lbl-votes">500</strong></div>
+      <input type="range" id="sl-votes" min="100" max="1000" step="100" value="500">
+      <div class="param-desc">过滤冷门条目，减少噪声评分</div>
+    </div>
+    <div class="param">
+      <div class="param-label">开始年份 <strong id="lbl-yr-min">不限</strong></div>
+      <input type="range" id="sl-yr-min" min="1996" max="2026" step="1" value="1996">
+      <div class="param-desc">滑到最左 = 不限下界</div>
+    </div>
+    <div class="param">
+      <div class="param-label">结束年份 <strong id="lbl-yr-max">2026</strong></div>
+      <input type="range" id="sl-yr-max" min="1996" max="2026" step="1" value="2026">
+    </div>
+    <div class="settings-sep"></div>
+    <div class="param param-checks">
+      <div class="param-label" style="margin-bottom:6px">排除标签</div>
+      <label><input type="checkbox" id="cb-guochan" checked> 排除国产</label>
+      <label><input type="checkbox" id="cb-theatre" checked> 排除剧场版</label>
+      <label><input type="checkbox" id="cb-ova" checked> 排除OVA</label>
+      <label><input type="checkbox" id="cb-pamen" checked> 排除泡面番</label>
+      <label><input type="checkbox" id="cb-oumei" checked> 排除欧美</label>
+      <label><input type="checkbox" id="cb-short" checked> 排除短片</label>
+    </div>
+    <div class="param param-restart">
+      <div class="param-desc" style="margin-bottom:8px">候选池：<strong id="pool-size">—</strong></div>
+      <button id="btn-restart">↺ 重新开始（应用过滤）</button>
+    </div>
+  </div>
+</details>
+
+<div id="gameover" class="modal-overlay">
+  <div class="gameover-box">
+    <span class="gameover-icon" id="go-icon">🎬</span>
+    <h2 id="go-title">游戏结束</h2>
+    <p id="go-stats"></p>
+    <button id="go-restart">再来一局</button>
+  </div>
+</div>
+
+<div id="help-overlay" class="modal-overlay">
+  <div class="help-box">
+    <h3>玩法说明</h3>
+    <ul class="help-steps">
+      <li>
+        <span class="step-num">1</span>
+        <span>每轮显示两部番剧，点击你认为 Bangumi 评分更高的那部</span>
+      </li>
+      <li>
+        <span class="step-num">2</span>
+        <span>答错扣一条机会，共 5 条，全部用完游戏结束</span>
+      </li>
+      <li>
+        <span class="step-num">3</span>
+        <span>在 5 条机会用完前完成 50 题，你就是 Bangumi大师！</span>
+      </li>
+    </ul>
+    <div class="help-tip">提示：点击底部「过滤设置」可以调整候选番剧池，例如限定年份范围或排除特定类型。</div>
+    <button class="help-close" id="btn-help-close">知道了</button>
+  </div>
+</div>
+
+<div class="hint">数据来源：Bangumi &nbsp;·&nbsp; 灵感来源：<a href="https://rule34dle.vercel.app/" target="_blank" rel="noopener" style="color:#0084b4;text-decoration:none;">rule34dle</a></div>
+
+<script>
+const LOCAL_SIGMA=0.40,SIGMA_MIN=0.10,WILD_CHANCE=0.30,GAUSS_MU=6.75,GAUSS_SIG=0.94;
+let allAnime=[],anime=[],animeByRank=[],rankPosById={},N=0;
+const BIN_EDGES=[6.5,7.5];let bins=[];
+const MAX_LIVES=5,MASTER_GOAL=50;
+let slots={a:null,b:null},stats={correct:0,total:0,streak:0},maxStreak=0,lives=MAX_LIVES,phase='loading',firstRound=true,seenIds=new Set();
+
+function randn(){const u=1-Math.random(),v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+
+function sampleNearRank(a,excl,so){
+  const nr=animeByRank.length,ap=rankPosById[a.id]??Math.random(),sig=so??LOCAL_SIGMA;
+  let p=ap+randn()*sig;p=Math.abs(p%2);if(p>1)p=2-p;
+  let i=Math.min(Math.round(p*(nr-1)),nr-1);
+  if(animeByRank[i].id===excl)i=(i+1)%nr;
+  return animeByRank[i];
+}
+
+function sampleNear(a,excl){
+  if(Math.random()<WILD_CHANCE){
+    const bi=Math.floor(Math.random()*bins.length),bin=bins[bi];
+    let i=bin[Math.floor(Math.random()*bin.length)];
+    if(anime[i].id===excl)i=bin[(bin.indexOf(i)+1)%bin.length];
+    return anime[i];
+  }
+  const s=a.score;let sig;
+  if(s<=GAUSS_MU){sig=LOCAL_SIGMA;}
+  else{const w=Math.exp(-0.5*Math.pow((s-GAUSS_MU)/GAUSS_SIG,2));sig=SIGMA_MIN+(LOCAL_SIGMA-SIGMA_MIN)*w;}
+  return sampleNearRank(a,excl,sig);
+}
+
+function sampleNextCard(a){
+  for(let i=0;i<20;i++){const c=sampleNear(a,a.id);if(!seenIds.has(c.id))return c;}
+  const u=anime.filter(x=>!seenIds.has(x.id)&&x.id!==a.id);
+  return u.length?u[Math.floor(Math.random()*u.length)]:null;
+}
+
+function $(id){return document.getElementById(id);}
+
+function formatDate(d){
+  if(!d)return'';
+  const y=d.substring(0,4),m=d.length>=7?parseInt(d.substring(5,7)):0;
+  return m?y+'年'+m+'月':y+'年';
+}
+
+function fillCard(s,e,sm){
+  $('img-'+s).src=e.image_url||'';
+  $('name-'+s).textContent=e.name_cn||e.name;
+  $('date-'+s).textContent=formatDate(e.air_date);
+  $('card-'+s).className='card';
+  $('tag-'+s).textContent=s==='a'?'上轮存活':'NEW';
+  $('tag-'+s).className='card-tag '+(s==='a'?'old':'fresh');
+  $('badge-'+s).textContent='';$('badge-'+s).classList.remove('show');
+  const el=$('score-'+s);el.classList.remove('question');
+  if(sm==='score'){el.textContent=e.score.toFixed(1);el.classList.add('show');}
+  else if(sm==='question'){el.textContent='?';el.classList.add('show','question');}
+  else{el.textContent=e.score.toFixed(1);el.classList.remove('show');}
+}
+
+function revealScore(s,e){
+  const el=$('score-'+s);el.textContent=e.score.toFixed(1);
+  el.classList.remove('question');el.classList.add('show');
+}
+
+function hideScores(){
+  ['a','b'].forEach(s=>{$('score-'+s).classList.remove('show','question');$('badge-'+s).classList.remove('show');});
+}
+
+function setPrompt(t,c){const el=$('prompt');el.textContent=t;el.className='prompt'+(c?' '+c:'');}
+function updateStats(){$('st-streak').textContent=stats.streak;$('st-total').textContent=stats.total;}
+function updateLives(){$('st-lives').textContent='♥'.repeat(lives)+'♡'.repeat(MAX_LIVES-lives);}
+
+function bumpStat(id){
+  const el=$(id);el.classList.remove('bump');void el.offsetWidth;
+  el.classList.add('bump');setTimeout(()=>el.classList.remove('bump'),200);
+}
+
+function gameOver(){
+  phase='gameover';
+  const acc=stats.total?Math.round(stats.correct/stats.total*100):0;
+  const isMaster=stats.total>=MASTER_GOAL;
+  $('go-icon').textContent=isMaster?'🏆':'🎬';
+  const t=$('go-title');t.textContent=isMaster?'你是Bangumi大师！':'游戏结束';
+  t.className=isMaster?'is-master':'';
+  $('go-stats').innerHTML=
+    '完成题目 <strong>'+stats.total+'</strong> 题<br>'+
+    '最高连击 <strong>'+maxStreak+'</strong> 连<br>'+
+    (isMaster
+      ?'<span style="color:var(--pink)">正确率 '+acc+'% — 恭喜！🎉</span>'
+      :'正确率 <strong>'+acc+'%</strong>');
+  $('gameover').classList.add('show');
+}
+
+function renderPlaying(){
+  if(firstRound){fillCard('a',slots.a,'hidden');fillCard('b',slots.b,'hidden');}
+  else{fillCard('a',slots.a,'score');fillCard('b',slots.b,'question');}
+  $('card-a').classList.remove('locked');$('card-b').classList.remove('locked');
+  setPrompt('哪部番剧的评分更高？');updateStats();
+}
+
+function onSelect(side){
+  if(phase!=='playing')return;
+  phase='reveal';firstRound=false;
+  $('card-a').classList.add('locked');$('card-b').classList.add('locked');
+  const isTie=slots.a.score===slots.b.score;
+  const isRight=isTie||slots[side].score>slots[side==='a'?'b':'a'].score;
+  const hi=isTie?side:(slots.a.score>slots.b.score?'a':'b');
+  revealScore('a',slots.a);revealScore('b',slots.b);
+  $('badge-'+side).textContent=isRight?'✅':'❌';$('badge-'+side).classList.add('show');
+  if(!isTie&&side!==hi){$('badge-'+hi).textContent='👑';$('badge-'+hi).classList.add('show');}
+  $('card-'+side).classList.add(isRight?'state-correct':'state-wrong');
+  $('card-'+hi).classList.add('state-winner');
+  stats.total++;
+  if(isRight){stats.correct++;stats.streak++;if(stats.streak>maxStreak)maxStreak=stats.streak;bumpStat('st-streak');}
+  else{stats.streak=0;lives--;updateLives();}
+  bumpStat('st-total');updateStats();
+  const diff=Math.abs(slots.a.score-slots.b.score).toFixed(1);
+  setPrompt(
+    isTie?'平局！两部都是'+slots.a.score.toFixed(1)+'分':
+    isRight?'✓ 答对了！分差'+diff+'分':
+    '✗ 答错了，分差'+diff+'分（剩余机会'+lives+'）',
+    isRight?'correct':'wrong'
+  );
+  setTimeout(()=>{if(lives<=0)gameOver();else advance();},1800);
+}
+
+function advance(){
+  hideScores();
+  setTimeout(()=>{
+    $('overlay-b').classList.add('flash');
+    setTimeout(()=>{
+      slots.a=slots.b;
+      const nx=sampleNextCard(slots.a);
+      if(!nx){gameOver();return;}
+      seenIds.add(nx.id);slots.b=nx;
+      $('overlay-b').classList.remove('flash');
+      phase='playing';renderPlaying();
+    },280);
+  },400);
+}
+
+function buildBins(p){
+  const r=BIN_EDGES.concat([Infinity]).map(()=>[]);
+  p.forEach((a,i)=>{const b=BIN_EDGES.findIndex(e=>a.score<e);r[b===-1?BIN_EDGES.length:b].push(i);});
+  return r;
+}
+
+function buildRankOrder(p){
+  animeByRank=p.slice().sort((a,b)=>(!a.rank&&!b.rank)?0:!a.rank?1:!b.rank?-1:a.rank-b.rank);
+  rankPosById={};const nr=animeByRank.length;
+  animeByRank.forEach((a,i)=>{rankPosById[a.id]=i/Math.max(1,nr-1);});
+}
+
+function applyFilters(){
+  const mv=parseInt($('sl-votes').value),ym=parseInt($('sl-yr-min').value),
+        yx=parseInt($('sl-yr-max').value),nlb=ym<=1996,
+        ng=$('cb-guochan').checked,nt=$('cb-theatre').checked,
+        no=$('cb-ova').checked,np=$('cb-pamen').checked,
+        nom=$('cb-oumei').checked,ns=$('cb-short').checked;
+  return allAnime.filter(a=>{
+    if(a.vote_count<mv)return false;
+    if(a.air_date){const y=parseInt(a.air_date.substring(0,4));if(!nlb&&y<ym)return false;if(y>yx)return false;}
+    if(ng&&a.tags.includes('国产'))return false;
+    if(nt&&a.tags.includes('剧场版'))return false;
+    if(no&&a.tags.includes('OVA'))return false;
+    if(np&&a.tags.includes('泡面番'))return false;
+    if(nom&&a.tags.includes('欧美'))return false;
+    if(ns&&a.tags.includes('短片'))return false;
+    return true;
+  });
+}
+
+function restart(){
+  $('gameover').classList.remove('show');
+  lives=MAX_LIVES;maxStreak=0;updateLives();
+  const f=applyFilters();
+  anime=f.slice().sort((a,b)=>a.score-b.score);N=anime.length;
+  bins=buildBins(anime);buildRankOrder(f);
+  $('pool-size').textContent=N+' 部';
+  stats={correct:0,total:0,streak:0};firstRound=true;seenIds=new Set();updateStats();
+  const si=Math.floor(Math.random()*N);
+  slots.a=anime[si];seenIds.add(slots.a.id);
+  slots.b=sampleNextCard(slots.a);if(slots.b)seenIds.add(slots.b.id);
+  phase='playing';renderPlaying();
+}
+
+function initControls(){
+  $('sl-votes').addEventListener('input',()=>$('lbl-votes').textContent=$('sl-votes').value);
+  $('sl-yr-min').addEventListener('input',()=>{const v=parseInt($('sl-yr-min').value);$('lbl-yr-min').textContent=v<=1996?'不限':v;});
+  $('sl-yr-max').addEventListener('input',()=>$('lbl-yr-max').textContent=$('sl-yr-max').value);
+  $('btn-restart').addEventListener('click',restart);
+  $('go-restart').addEventListener('click',restart);
+  $('btn-help').addEventListener('click',()=>$('help-overlay').classList.add('show'));
+  $('btn-help-close').addEventListener('click',()=>$('help-overlay').classList.remove('show'));
+  $('help-overlay').addEventListener('click',e=>{if(e.target===$('help-overlay'))$('help-overlay').classList.remove('show');});
+}
+
+async function init(){
+  initControls();
+  allAnime=await fetch('data/anime_list.json').then(r=>r.json());
+  $('loading').style.display='none';
+  restart();
+}
+
+init();
+</script>
+</body>
+</html>
