@@ -597,7 +597,6 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
     <p id="go-best" style="font-size:0.78rem;color:var(--muted);margin-bottom:20px;line-height:1.9;"></p>
     <button id="go-restart">再来一局</button>
     <button id="go-share" onclick="shareResult()">保存结果</button>
-    <button id="go-cheat" onclick="cheatGod()" style="margin-top:8px;background:transparent;color:#c8c8d8;border:1px dashed #d8d8e8;border-radius:8px;padding:6px 0;font-size:0.7rem;cursor:pointer;width:100%;">⚡ 测试神级</button>
   </div>
 </div>
 
@@ -919,11 +918,6 @@ function drawResultCard(){
   ctx.fillText(footer,W/2,H-18);
 
   return cv;
-}
-
-function cheatGod(){
-  stats.correct=100;stats.total=100;maxStreak=100;
-  gameOver();
 }
 
 async function shareResult(){
