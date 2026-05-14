@@ -742,8 +742,8 @@ function sampleNearRank(a,excl,so){
   return animeByRank[i];
 }
 
-function sampleNear(a,excl){
-  if(Math.random()<WILD_CHANCE){
+function sampleNear(a,excl,mode){
+  if(mode==='jump'){
     const bi=Math.floor(Math.random()*bins.length),bin=bins[bi];
     let i=bin[Math.floor(Math.random()*bin.length)];
     if(anime[i].id===excl)i=bin[(bin.indexOf(i)+1)%bin.length];
@@ -755,24 +755,26 @@ function sampleNear(a,excl){
   return sampleNearRank(a,excl,sig);
 }
 
-function sampleNextCard(a){
-  for(let i=0;i<20;i++){const c=sampleNear(a,a.id);if(!seenIds.has(c.id))return c;}
+function sampleNextCard(a,mode){
+  if(mode==null)mode=Math.random()<WILD_CHANCE?'jump':'walk';
+  for(let i=0;i<20;i++){const c=sampleNear(a,a.id,mode);if(!seenIds.has(c.id))return{card:c,mode};}
   const u=anime.filter(x=>!seenIds.has(x.id)&&x.id!==a.id);
-  return u.length?u[Math.floor(Math.random()*u.length)]:null;
+  return u.length?{card:u[Math.floor(Math.random()*u.length)],mode}:null;
 }
 
 function sampleNextCardConstrained(a){
-  let c=sampleNextCard(a);
-  if(!c)return null;
+  const r=sampleNextCard(a);
+  if(!r)return null;
+  const m=r.mode;let c=r.card;
   const d1=s=>Math.round(s*10)/10;
   if(d1(c.score)===d1(a.score)){
-    const c2=sampleNextCard(a);
-    if(c2)c=c2;
+    const r2=sampleNextCard(a,m);
+    if(r2)c=r2.card;
   }
   const budget=Math.floor((stats.total+1)*0.15)+1;
-  if(Math.abs(c.score-a.score)<=0.2&&gameLog&&gameLog.close02Count+1>budget){
-    const c3=sampleNextCard(a);
-    if(c3)c=c3;
+  if(Math.round(Math.abs(c.score-a.score)*10)<=2&&gameLog&&gameLog.close02Count+1>budget){
+    const r3=sampleNextCard(a,m);
+    if(r3)c=r3.card;
   }
   return c;
 }
@@ -926,9 +928,10 @@ function onSelect(side){
   const diffNum=Math.abs(slots.a.score-slots.b.score);
   const diff=diffNum.toFixed(1);
   if(!isTie){
-    const b=diffNum<=0.2?0:diffNum<=0.5?1:diffNum<=1.0?2:3;
+    const d10=Math.round(diffNum*10);
+    const b=d10<=2?0:d10<=5?1:d10<=10?2:3;
     gameLog.diffBuckets[b]++;
-    if(diffNum<=0.2)gameLog.close02Count++;
+    if(d10<=2)gameLog.close02Count++;
   }
   if(!isRight&&!isTie){
     const prevCarry=gameLog.lastWrongCarryId;
@@ -948,7 +951,7 @@ function onSelect(side){
       incrementMistakeCount(blamed.id);
     });
     gameLog.lastWrongCarryId=slots.b.id;
-    if(diffNum<=0.2)gameLog.closeGapWrongs++;
+    if(Math.round(diffNum*10)<=2)gameLog.closeGapWrongs++;
   }
   setPrompt(
     isTie?'平局！两部都是'+slots.a.score.toFixed(1)+'分':
@@ -1027,7 +1030,7 @@ function restart(){
   }
   const si=Math.floor(Math.random()*N);
   slots.a=anime[si];seenIds.add(slots.a.id);
-  slots.b=sampleNextCard(slots.a);
+  const r0=sampleNextCard(slots.a);slots.b=r0?r0.card:null;
   if(!slots.b){
     phase='empty';
     setPrompt('符合条件的番剧太少，请放宽过滤设置','wrong');
