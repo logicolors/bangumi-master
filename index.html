@@ -433,8 +433,82 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
   -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
 }
 
-#go-stats { color: var(--muted); font-size: 0.88rem; line-height: 2.1; margin: 14px 0 26px; }
+#go-stats { color: var(--muted); font-size: 0.88rem; line-height: 2.1; margin: 14px 0 16px; }
 #go-stats strong { color: var(--text); }
+
+.go-tip {
+  display: none;
+  margin: 14px auto 0;
+  padding: 8px 14px;
+  background: var(--surface2);
+  border-radius: 10px;
+  font-size: 0.82rem;
+  color: var(--pink-deep);
+  line-height: 1.5;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.go-tip.show { display: block; }
+.go-diff-wrap {
+  margin: 14px 0 0;
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.go-diff-wrap > summary {
+  cursor: pointer;
+  list-style: none;
+  display: inline-block;
+  color: var(--muted);
+  user-select: none;
+  letter-spacing: 0.03em;
+  transition: color 0.15s;
+}
+.go-diff-wrap > summary::-webkit-details-marker { display: none; }
+.go-diff-wrap > summary::before {
+  content: '▸ ';
+  font-size: 0.7rem;
+  display: inline-block;
+  transition: transform 0.2s;
+}
+.go-diff-wrap[open] > summary::before { content: '▾ '; }
+.go-diff-wrap > summary:hover { color: var(--pink-deep); }
+.go-diff {
+  margin: 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.diff-row {
+  display: grid;
+  grid-template-columns: 64px 1fr 28px;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-align: left;
+}
+.diff-row .diff-label { letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
+.diff-row .diff-bar-track {
+  display: block;
+  height: 6px;
+  background: var(--surface2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.diff-row .diff-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+.diff-row .diff-count {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text);
+}
+.diff-row.empty .diff-count { color: var(--muted); font-weight: 400; }
 
 #go-restart {
   background: linear-gradient(135deg, var(--pink), var(--pink-deep));
@@ -597,6 +671,11 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
     <p id="go-best" style="font-size:0.78rem;color:var(--muted);margin-bottom:20px;line-height:1.9;"></p>
     <button id="go-restart">再来一局</button>
     <button id="go-share" onclick="shareResult()">保存结果</button>
+    <p id="go-tip" class="go-tip"></p>
+    <details id="go-diff-wrap" class="go-diff-wrap">
+      <summary>分差统计</summary>
+      <div id="go-diff" class="go-diff"></div>
+    </details>
   </div>
 </div>
 
@@ -631,7 +710,7 @@ let allAnime=[],anime=[],animeByRank=[],rankPosById={},N=0;
 const BIN_EDGES=[6.5,7.5];let bins=[];
 const MAX_LIVES=5,MASTER_GOAL=50,GOD_GOAL=100;
 let slots={a:null,b:null},stats={correct:0,total:0,streak:0},maxStreak=0,lives=MAX_LIVES,phase='loading',firstRound=true,seenIds=new Set();
-let bestTotal=0,bestStreak=0,goState=null;
+let bestTotal=0,bestStreak=0,goState=null,gameLog=null,mistakeCounts={};
 
 function loadBest(){
   bestTotal=parseInt(localStorage.getItem('bgm_best_total')||'0');
@@ -640,6 +719,17 @@ function loadBest(){
 function saveBest(){
   localStorage.setItem('bgm_best_total',bestTotal);
   localStorage.setItem('bgm_best_streak',bestStreak);
+}
+function loadMistakeCounts(){
+  try{mistakeCounts=JSON.parse(localStorage.getItem('bgm_anime_mistakes')||'{}');}
+  catch(e){mistakeCounts={};}
+}
+function incrementMistakeCount(id){
+  mistakeCounts[id]=(mistakeCounts[id]||0)+1;
+  localStorage.setItem('bgm_anime_mistakes',JSON.stringify(mistakeCounts));
+}
+function newGameLog(){
+  return{mistakes:[],closeGapWrongs:0,lastWrongCarryId:null,diffBuckets:[0,0,0,0]};
 }
 
 function randn(){const u=1-Math.random(),v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
@@ -714,6 +804,44 @@ function bumpStat(id){
   el.classList.add('bump');setTimeout(()=>el.classList.remove('bump'),200);
 }
 
+const TIP_TAG_BLACKLIST=new Set(['TV','日本','动画','OVA','剧场版','WEB','短片','SP','TVSP','OAD','番剧','OP','ED']);
+function pickFrom(arr){return arr[Math.floor(Math.random()*arr.length)];}
+function countWord(n){return['','一','双','三','四','五','六','七','八','九','十'][n]||(n+'');}
+function pickTip(log){
+  if(!log||!log.mistakes.length)return null;
+  const candidates=[];
+  const dk=log.mistakes.find(m=>m.doubleKill);
+  if(dk)candidates.push('《'+dk.blamedName+'》'+pickFrom(['双杀！','又是你？','两连击','梅开二度']));
+  const cross=log.mistakes.find(m=>(mistakeCounts[m.blamedId]||0)>=2);
+  if(cross)candidates.push(pickFrom(['又是','还是','怎么又是'])+'《'+cross.blamedName+'》…');
+  const tagCount={};
+  log.mistakes.forEach(m=>{(m.tags||[]).forEach(t=>{
+    if(TIP_TAG_BLACKLIST.has(t))return;
+    if(/^\d{4}$/.test(t))return;
+    tagCount[t]=(tagCount[t]||0)+1;
+  });});
+  let topTag=null,topN=0;
+  for(const t in tagCount)if(tagCount[t]>topN){topN=tagCount[t];topTag=t;}
+  if(topTag&&topN>=3)candidates.push('#'+topTag+' '+countWord(topN)+'杀');
+  const veryClose=log.mistakes.find(m=>m.diff<=0.1);
+  if(veryClose)candidates.push('运气不太好，《'+veryClose.blamedName+'》和《'+veryClose.otherName+'》只差了 '+veryClose.diff.toFixed(1)+' 分！');
+  if(log.closeGapWrongs>=3)candidates.push(pickFrom(['运气不太好，洗把脸吧','差距太小，不算你的错','这把分差有点欺负人']));
+  return candidates.length?pickFrom(candidates):null;
+}
+function renderDiffBuckets(b){
+  const labels=['< 0.2','0.2 – 0.5','0.5 – 1.0','> 1.0'];
+  const color='#e07282';
+  const total=b.reduce((a,c)=>a+c,0)||1;
+  return b.map((n,i)=>{
+    const pct=Math.round(n/total*100);
+    return '<div class="diff-row'+(n===0?' empty':'')+'">'+
+      '<span class="diff-label">'+labels[i]+'</span>'+
+      '<span class="diff-bar-track"><span class="diff-bar-fill" style="width:'+pct+'%;background:'+color+'"></span></span>'+
+      '<span class="diff-count">'+n+'</span>'+
+      '</div>';
+  }).join('');
+}
+
 function gameOver(){
   phase='gameover';
   const acc=stats.total?Math.round(stats.correct/stats.total*100):0;
@@ -736,7 +864,12 @@ function gameOver(){
   $('go-best').innerHTML=bestTotal>0&&!(newBestTotal&&newBestStreak)
     ?'历史最佳：完成 '+bestTotal+' 题 &nbsp;·&nbsp; 连击 '+bestStreak
     :'';
-  goState={isGod,isMaster,total:stats.total,maxStreak,acc,bestTotal,bestStreak,newBestTotal,newBestStreak};
+  const tip=(!isGod&&!isMaster)?pickTip(gameLog):null;
+  if(tip){$('go-tip').textContent=tip;$('go-tip').classList.add('show');}
+  else{$('go-tip').textContent='';$('go-tip').classList.remove('show');}
+  $('go-diff').innerHTML=stats.total>0?renderDiffBuckets(gameLog.diffBuckets):'';
+  $('go-diff-wrap').style.display=stats.total>0?'':'none';
+  goState={isGod,isMaster,total:stats.total,maxStreak,acc,bestTotal,bestStreak,newBestTotal,newBestStreak,tip,diffBuckets:gameLog?gameLog.diffBuckets.slice():[0,0,0,0]};
   $('gameover').classList.add('show');
 }
 
@@ -749,6 +882,7 @@ function renderPlaying(){
 
 function onSelect(side){
   if(phase!=='playing')return;
+  const wasFirstRound=firstRound;
   phase='reveal';firstRound=false;
   $('card-a').classList.add('locked');$('card-b').classList.add('locked');
   const isTie=slots.a.score===slots.b.score;
@@ -763,7 +897,32 @@ function onSelect(side){
   if(isRight){stats.correct++;stats.streak++;if(stats.streak>maxStreak)maxStreak=stats.streak;bumpStat('st-streak');}
   else{stats.streak=0;lives--;updateLives();}
   bumpStat('st-total');updateStats();
-  const diff=Math.abs(slots.a.score-slots.b.score).toFixed(1);
+  const diffNum=Math.abs(slots.a.score-slots.b.score);
+  const diff=diffNum.toFixed(1);
+  if(!isTie){
+    const b=diffNum<0.2?0:diffNum<0.5?1:diffNum<1.0?2:3;
+    gameLog.diffBuckets[b]++;
+  }
+  if(!isRight&&!isTie){
+    const prevCarry=gameLog.lastWrongCarryId;
+    const blamedSides=wasFirstRound?['a','b']:['b'];
+    const doubleKill=prevCarry!=null&&slots.a.id===prevCarry;
+    blamedSides.forEach(bs=>{
+      const blamed=slots[bs];
+      const other=slots[bs==='a'?'b':'a'];
+      gameLog.mistakes.push({
+        blamedId:blamed.id,
+        blamedName:blamed.name_cn||blamed.name,
+        otherName:other.name_cn||other.name,
+        tags:Array.isArray(blamed.tags)?blamed.tags.slice(0,8):[],
+        diff:diffNum,
+        doubleKill
+      });
+      incrementMistakeCount(blamed.id);
+    });
+    gameLog.lastWrongCarryId=slots.b.id;
+    if(diffNum<=0.2)gameLog.closeGapWrongs++;
+  }
   setPrompt(
     isTie?'平局！两部都是'+slots.a.score.toFixed(1)+'分':
     isRight?'✓ 答对了！分差'+diff+'分':
@@ -821,12 +980,16 @@ function applyFilters(){
 
 function restart(){
   $('gameover').classList.remove('show');
+  $('go-tip').textContent='';$('go-tip').classList.remove('show');
+  $('go-diff').innerHTML='';$('go-diff-wrap').open=false;
   lives=MAX_LIVES;maxStreak=0;updateLives();
   const f=applyFilters();
   anime=f.slice().sort((a,b)=>a.score-b.score);N=anime.length;
   bins=buildBins(anime);buildRankOrder(f);
   $('pool-size').textContent=N+' 部';
-  stats={correct:0,total:0,streak:0};firstRound=true;seenIds=new Set();updateStats();
+  stats={correct:0,total:0,streak:0};firstRound=true;seenIds=new Set();
+  gameLog=newGameLog();
+  updateStats();
   const si=Math.floor(Math.random()*N);
   slots.a=anime[si];seenIds.add(slots.a.id);
   slots.b=sampleNextCard(slots.a);if(slots.b)seenIds.add(slots.b.id);
@@ -904,12 +1067,19 @@ function drawResultCard(){
     ry+=38;
   });
 
+  // Tip line
+  if(s.tip){
+    ctx.font='bold 13px '+FONT;ctx.fillStyle='#e07282';ctx.textAlign='center';
+    ctx.fillText(s.tip,W/2,ry+2);
+    ry+=26;
+  }
+
   // Historical best
   if(s.bestTotal>0){
     ctx.strokeStyle='#d8d8e8';ctx.lineWidth=1;
     ctx.beginPath();ctx.moveTo(48,ry+8);ctx.lineTo(W-48,ry+8);ctx.stroke();
     ctx.font='12px '+FONT;ctx.fillStyle='#8e8ea0';ctx.textAlign='center';
-    ctx.fillText('历史最佳：完成 '+s.bestTotal+' 题  ·  连击 '+s.bestStreak,W/2,ry+38);
+    ctx.fillText('历史最佳：完成 '+s.bestTotal+' 题  ·  连击 '+s.bestStreak,W/2,ry+30);
   }
 
   // Footer
@@ -932,6 +1102,7 @@ async function shareResult(){
 async function init(){
   initControls();
   loadBest();
+  loadMistakeCounts();
   allAnime=await fetch('data/anime_list.json').then(r=>r.json());
   $('loading').style.display='none';
   restart();
