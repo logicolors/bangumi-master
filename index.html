@@ -626,10 +626,10 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
 
 <script>
 const LOCAL_SIGMA=0.40,SIGMA_MIN=0.10,WILD_CHANCE=0.30,GAUSS_MU=6.75,GAUSS_SIG=0.94;
-const SITE_URL=''; // fill in your deployed URL, e.g. 'bangumi-master.netlify.app'
+const SITE_URL='bangumi-master.logicry.cc';
 let allAnime=[],anime=[],animeByRank=[],rankPosById={},N=0;
 const BIN_EDGES=[6.5,7.5];let bins=[];
-const MAX_LIVES=5,MASTER_GOAL=50;
+const MAX_LIVES=5,MASTER_GOAL=50,GOD_GOAL=100;
 let slots={a:null,b:null},stats={correct:0,total:0,streak:0},maxStreak=0,lives=MAX_LIVES,phase='loading',firstRound=true,seenIds=new Set();
 let bestTotal=0,bestStreak=0,goState=null;
 
@@ -717,25 +717,26 @@ function bumpStat(id){
 function gameOver(){
   phase='gameover';
   const acc=stats.total?Math.round(stats.correct/stats.total*100):0;
+  const isGod=stats.total>=GOD_GOAL;
   const isMaster=stats.total>=MASTER_GOAL;
   const newBestTotal=stats.total>bestTotal;
   const newBestStreak=maxStreak>bestStreak;
   if(newBestTotal)bestTotal=stats.total;
   if(newBestStreak)bestStreak=maxStreak;
   if(newBestTotal||newBestStreak)saveBest();
-  $('go-icon').textContent=isMaster?'🏆':'🎬';
-  const t=$('go-title');t.textContent=isMaster?'你是Bangumi大师！':'游戏结束';
-  t.className=isMaster?'is-master':'';
+  $('go-icon').textContent=isGod?'⚡':isMaster?'🏆':'🎬';
+  const t=$('go-title');t.textContent=isGod?'你是古希腊掌管Bangumi的神！':isMaster?'你是Bangumi大师！':'游戏结束';
+  t.className=(isGod||isMaster)?'is-master':'';
   $('go-stats').innerHTML=
     '完成题目 <strong>'+stats.total+'</strong> 题'+(newBestTotal?'<span class="new-record">新纪录！</span>':'')+'<br>'+
     '最高连击 <strong>'+maxStreak+'</strong> 连'+(newBestStreak?'<span class="new-record">新纪录！</span>':'')+'<br>'+
-    (isMaster
+    ((isGod||isMaster)
       ?'<span style="color:var(--pink)">正确率 '+acc+'% — 恭喜！🎉</span>'
       :'正确率 <strong>'+acc+'%</strong>');
   $('go-best').innerHTML=bestTotal>0&&!(newBestTotal&&newBestStreak)
     ?'历史最佳：完成 '+bestTotal+' 题 &nbsp;·&nbsp; 连击 '+bestStreak
     :'';
-  goState={isMaster,total:stats.total,maxStreak,acc,bestTotal,bestStreak,newBestTotal,newBestStreak};
+  goState={isGod,isMaster,total:stats.total,maxStreak,acc,bestTotal,bestStreak,newBestTotal,newBestStreak};
   $('gameover').classList.add('show');
 }
 
@@ -870,18 +871,19 @@ function drawResultCard(){
 
   // Icon
   ctx.font='54px serif';
-  ctx.fillText(s.isMaster?'🏆':'🎬',W/2,108);
+  ctx.fillText(s.isGod?'⚡':s.isMaster?'🏆':'🎬',W/2,108);
 
   // Result heading
-  ctx.font='bold 22px '+FONT;
-  if(s.isMaster){
+  const heading=s.isGod?'你是古希腊掌管Bangumi的神！':s.isMaster?'你是Bangumi大师！':'游戏结束';
+  ctx.font='bold '+(s.isGod?17:22)+'px '+FONT;
+  if(s.isGod||s.isMaster){
     const tg=ctx.createLinearGradient(W/2-80,0,W/2+80,0);
     tg.addColorStop(0,'#f09199');tg.addColorStop(1,'#e07282');
     ctx.fillStyle=tg;
   }else{
     ctx.fillStyle='#1c1c2e';
   }
-  ctx.fillText(s.isMaster?'你是Bangumi大师！':'游戏结束',W/2,148);
+  ctx.fillText(heading,W/2,148);
 
   // Divider
   ctx.strokeStyle='#d8d8e8';ctx.lineWidth=1;
