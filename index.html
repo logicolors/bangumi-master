@@ -704,7 +704,7 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
 <div class="hint">数据来源：<a href="https://bangumi.tv/" target="_blank" rel="noopener" style="color:#0084b4;text-decoration:none;">Bangumi</a> &nbsp;·&nbsp; 灵感来源：<a href="https://rule34dle.vercel.app/" target="_blank" rel="noopener" style="color:#0084b4;text-decoration:none;">rule34dle</a> &nbsp;·&nbsp; 数据更新：26.05.13</div>
 
 <script>
-const LOCAL_SIGMA=0.40,SIGMA_MIN=0.10,WILD_CHANCE=0.30,GAUSS_MU=6.75,GAUSS_SIG=0.94;
+const LOCAL_SIGMA=0.30,SIGMA_MIN=0.10,WILD_CHANCE=0.30,GAUSS_MU=6.75,GAUSS_SIG=0.94;
 const SITE_URL='bangumi-master.logicry.cc';
 let allAnime=[],anime=[],animeByRank=[],rankPosById={},N=0;
 const BIN_EDGES=[6.5,7.5];let bins=[];
@@ -771,7 +771,7 @@ function sampleNextCardConstrained(a){
     const r2=sampleNextCard(a,m);
     if(r2)c=r2.card;
   }
-  const budget=Math.floor((stats.total+1)*0.15)+1;
+  const budget=Math.floor((stats.total+1)*0.13)+1;
   if(Math.round(Math.abs(c.score-a.score)*10)<=2&&gameLog&&gameLog.close02Count+1>budget){
     const r3=sampleNextCard(a,m);
     if(r3)c=r3.card;
