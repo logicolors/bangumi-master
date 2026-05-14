@@ -701,7 +701,7 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
   </div>
 </div>
 
-<div class="hint">数据来源：<a href="https://bangumi.tv/" target="_blank" rel="noopener" style="color:#0084b4;text-decoration:none;">Bangumi</a> &nbsp;·&nbsp; 灵感来源：<a href="https://rule34dle.vercel.app/" target="_blank" rel="noopener" style="color:#0084b4;text-decoration:none;">rule34dle</a></div>
+<div class="hint">数据来源：<a href="https://bangumi.tv/" target="_blank" rel="noopener" style="color:#0084b4;text-decoration:none;">Bangumi</a> &nbsp;·&nbsp; 灵感来源：<a href="https://rule34dle.vercel.app/" target="_blank" rel="noopener" style="color:#0084b4;text-decoration:none;">rule34dle</a> &nbsp;·&nbsp; 数据更新：26.05.13</div>
 
 <script>
 const LOCAL_SIGMA=0.40,SIGMA_MIN=0.10,WILD_CHANCE=0.30,GAUSS_MU=6.75,GAUSS_SIG=0.94;
@@ -710,7 +710,7 @@ let allAnime=[],anime=[],animeByRank=[],rankPosById={},N=0;
 const BIN_EDGES=[6.5,7.5];let bins=[];
 const MAX_LIVES=5,MASTER_GOAL=50,GOD_GOAL=100;
 let slots={a:null,b:null},stats={correct:0,total:0,streak:0},maxStreak=0,lives=MAX_LIVES,phase='loading',firstRound=true,seenIds=new Set();
-let bestTotal=0,bestStreak=0,goState=null,gameLog=null,mistakeCounts={};
+let bestTotal=0,bestStreak=0,goState=null,gameLog=null,mistakeCounts={},poolExhausted=false;
 
 function loadBest(){
   bestTotal=parseInt(localStorage.getItem('bgm_best_total')||'0');
@@ -729,7 +729,7 @@ function incrementMistakeCount(id){
   localStorage.setItem('bgm_anime_mistakes',JSON.stringify(mistakeCounts));
 }
 function newGameLog(){
-  return{mistakes:[],closeGapWrongs:0,lastWrongCarryId:null,diffBuckets:[0,0,0,0]};
+  return{mistakes:[],closeGapWrongs:0,lastWrongCarryId:null,diffBuckets:[0,0,0,0],close02Count:0};
 }
 
 function randn(){const u=1-Math.random(),v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
@@ -761,6 +761,22 @@ function sampleNextCard(a){
   return u.length?u[Math.floor(Math.random()*u.length)]:null;
 }
 
+function sampleNextCardConstrained(a){
+  let c=sampleNextCard(a);
+  if(!c)return null;
+  const d1=s=>Math.round(s*10)/10;
+  if(d1(c.score)===d1(a.score)){
+    const c2=sampleNextCard(a);
+    if(c2)c=c2;
+  }
+  const budget=Math.floor((stats.total+1)*0.15)+1;
+  if(Math.abs(c.score-a.score)<=0.2&&gameLog&&gameLog.close02Count+1>budget){
+    const c3=sampleNextCard(a);
+    if(c3)c=c3;
+  }
+  return c;
+}
+
 function $(id){return document.getElementById(id);}
 
 function formatDate(d){
@@ -777,13 +793,22 @@ function fillCard(s,e,sm){
   img.src=e.image_url||'';
   if(img.complete&&img.naturalWidth>0)img.style.opacity='1';
   $('name-'+s).textContent=e.name_cn||e.name;
-  $('date-'+s).textContent=formatDate(e.air_date);
+  $('date-'+s).textContent=formatDate(e.air_date)+(e.vote_count?' · '+e.vote_count+' 人评分':'');
   $('card-'+s).className='card';
   $('badge-'+s).textContent='';$('badge-'+s).classList.remove('show');
   const el=$('score-'+s);el.classList.remove('question');
   if(sm==='score'){el.textContent=e.score.toFixed(1);el.classList.add('show');}
   else if(sm==='question'){el.textContent='?';el.classList.add('show','question');}
   else{el.textContent=e.score.toFixed(1);el.classList.remove('show');}
+}
+
+function clearCard(s){
+  const img=$('img-'+s);img.onload=null;img.onerror=null;img.removeAttribute('src');img.style.opacity='0';
+  $('name-'+s).textContent='—';
+  $('date-'+s).textContent='';
+  $('card-'+s).className='card locked';
+  $('badge-'+s).textContent='';$('badge-'+s).classList.remove('show');
+  const el=$('score-'+s);el.textContent='';el.classList.remove('show','question');
 }
 
 function revealScore(s,e){
@@ -856,6 +881,7 @@ function gameOver(){
   const t=$('go-title');t.textContent=isGod?'你是古希腊掌管Bangumi的神！':isMaster?'你是Bangumi大师！':'游戏结束';
   t.className=(isGod||isMaster)?'is-master':'';
   $('go-stats').innerHTML=
+    (poolExhausted?'<span style="color:var(--pink-deep);font-size:0.78rem">已用完所有符合条件的番剧</span><br>':'')+
     '完成题目 <strong>'+stats.total+'</strong> 题'+(newBestTotal?'<span class="new-record">新纪录！</span>':'')+'<br>'+
     '最高连击 <strong>'+maxStreak+'</strong> 连'+(newBestStreak?'<span class="new-record">新纪录！</span>':'')+'<br>'+
     ((isGod||isMaster)
@@ -902,6 +928,7 @@ function onSelect(side){
   if(!isTie){
     const b=diffNum<0.2?0:diffNum<0.5?1:diffNum<1.0?2:3;
     gameLog.diffBuckets[b]++;
+    if(diffNum<=0.2)gameLog.close02Count++;
   }
   if(!isRight&&!isTie){
     const prevCarry=gameLog.lastWrongCarryId;
@@ -938,8 +965,8 @@ function advance(){
     $('overlay-b').classList.add('flash');
     setTimeout(()=>{
       slots.a=slots.b;
-      const nx=sampleNextCard(slots.a);
-      if(!nx){gameOver();return;}
+      const nx=sampleNextCardConstrained(slots.a);
+      if(!nx){poolExhausted=true;gameOver();return;}
       seenIds.add(nx.id);slots.b=nx;
       $('overlay-b').classList.remove('flash');
       phase='playing';renderPlaying();
@@ -968,12 +995,13 @@ function applyFilters(){
   return allAnime.filter(a=>{
     if(a.vote_count<mv)return false;
     if(a.air_date){const y=parseInt(a.air_date.substring(0,4));if(!nlb&&y<ym)return false;if(y>yx)return false;}
-    if(ng&&a.tags.includes('国产'))return false;
-    if(nt&&a.tags.includes('剧场版'))return false;
-    if(no&&a.tags.includes('OVA'))return false;
-    if(np&&a.tags.includes('泡面番'))return false;
-    if(nom&&a.tags.includes('欧美'))return false;
-    if(ns&&a.tags.includes('短片'))return false;
+    const tags=Array.isArray(a.tags)?a.tags:[];
+    if(ng&&tags.includes('国产'))return false;
+    if(nt&&tags.includes('剧场版'))return false;
+    if(no&&tags.includes('OVA'))return false;
+    if(np&&tags.includes('泡面番'))return false;
+    if(nom&&tags.includes('欧美'))return false;
+    if(ns&&tags.includes('短片'))return false;
     return true;
   });
 }
@@ -989,10 +1017,24 @@ function restart(){
   $('pool-size').textContent=N+' 部';
   stats={correct:0,total:0,streak:0};firstRound=true;seenIds=new Set();
   gameLog=newGameLog();
+  poolExhausted=false;
   updateStats();
+  if(N<2){
+    phase='empty';
+    setPrompt(N===0?'当前筛选下没有番剧，请调整过滤设置':'符合条件的番剧太少，请放宽过滤设置','wrong');
+    clearCard('a');clearCard('b');
+    return;
+  }
   const si=Math.floor(Math.random()*N);
   slots.a=anime[si];seenIds.add(slots.a.id);
-  slots.b=sampleNextCard(slots.a);if(slots.b)seenIds.add(slots.b.id);
+  slots.b=sampleNextCard(slots.a);
+  if(!slots.b){
+    phase='empty';
+    setPrompt('符合条件的番剧太少，请放宽过滤设置','wrong');
+    clearCard('a');clearCard('b');
+    return;
+  }
+  seenIds.add(slots.b.id);
   phase='playing';renderPlaying();
 }
 
