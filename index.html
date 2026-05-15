@@ -917,7 +917,7 @@ function fillCard(s,e,sm){
   img.src=e.image_url||'';
   if(img.complete&&img.naturalWidth>0)img.style.opacity='1';
   $('name-'+s).textContent=e.name_cn||e.name;
-  const lnk=$('link-'+s);if(sm==='score'){lnk.href='https://bangumi.tv/subject/'+e.id;lnk.classList.add('show');}else{lnk.classList.remove('show');}
+  const lnk=$('link-'+s);if(sm==='score'&&gameMode!=='timed'){lnk.href='https://bangumi.tv/subject/'+e.id;lnk.classList.add('show');}else{lnk.classList.remove('show');}
   $('date-'+s).textContent=formatDate(e.air_date)+(e.vote_count?' · '+e.vote_count+' 人评分':'');
   $('card-'+s).className='card';
   $('badge-'+s).textContent='';$('badge-'+s).classList.remove('show');
