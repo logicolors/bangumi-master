@@ -975,7 +975,7 @@ function advance(){
     setTimeout(()=>{
       slots.a=slots.b;
       const nx=sampleNextCardConstrained(slots.a);
-      if(!nx){poolExhausted=true;gameOver();return;}
+      if(!nx){$('overlay-b').classList.remove('flash');poolExhausted=true;gameOver();return;}
       seenIds.add(nx.id);slots.b=nx;
       $('overlay-b').classList.remove('flash');
       phase='playing';renderPlaying();
@@ -986,7 +986,7 @@ function advance(){
 function buildBins(p){
   const r=BIN_EDGES.concat([Infinity]).map(()=>[]);
   p.forEach((a,i)=>{const b=BIN_EDGES.findIndex(e=>a.score<e);r[b===-1?BIN_EDGES.length:b].push(i);});
-  return r;
+  return r.filter(b=>b.length>0);
 }
 
 function buildRankOrder(p){
@@ -1016,6 +1016,7 @@ function applyFilters(){
 }
 
 function restart(){
+  $('overlay-a').classList.remove('flash');$('overlay-b').classList.remove('flash');
   $('gameover').classList.remove('show');
   $('go-tip').textContent='';$('go-tip').classList.remove('show');
   $('go-diff').innerHTML='';$('go-diff-wrap').open=false;
