@@ -796,6 +796,7 @@ let slots={a:null,b:null},stats={correct:0,total:0,streak:0},maxStreak=0,lives=M
 let bestTotal=0,bestStreak=0,bestTimedCorrect=0,bestTimedStreak=0,goState=null,gameLog=null,mistakeCounts={},poolExhausted=false;
 let gameMode='classic',timerId=null,timerEndsAt=0,timerRemaining=TIME_LIMIT_MS;
 let pendingNext=null,runToken=0;
+let boostFlag=false,boostMistakes=0;
 
 function speedFactor(){
   if(gameMode!=='timed')return 1;
@@ -803,7 +804,7 @@ function speedFactor(){
   if(s>=8)return 0.4;
   if(s>=5)return 0.55;
   if(s>=2)return 0.75;
-  return 1.0;
+  return boostFlag?0.9:1.0;
 }
 
 function loadBest(){
@@ -1115,8 +1116,12 @@ function onSelect(side){
   $('card-'+side).classList.add(isRight?'state-correct':'state-wrong');
   $('card-'+hi).classList.add('state-winner');
   stats.total++;
-  if(isRight){stats.correct++;stats.streak++;if(stats.streak>maxStreak)maxStreak=stats.streak;bumpStat('st-streak');}
-  else{stats.streak=0;if(gameMode!=='timed'){lives--;updateLives();}}
+  if(isRight){stats.correct++;stats.streak++;if(stats.streak>maxStreak)maxStreak=stats.streak;bumpStat('st-streak');
+    if(stats.streak>=5){boostFlag=true;boostMistakes=0;}
+  }
+  else{stats.streak=0;if(gameMode!=='timed'){lives--;updateLives();}
+    if(boostFlag){boostMistakes++;if(boostMistakes>=2)boostFlag=false;}
+  }
   bumpStat('st-total');updateStats();
   const diffNum=Math.abs(slots.a.score-slots.b.score);
   const diff=diffNum.toFixed(1);
@@ -1236,6 +1241,7 @@ function restart(){
   $('go-tip').textContent='';$('go-tip').classList.remove('show');
   $('go-diff').innerHTML='';$('go-diff-wrap').open=false;
   lives=MAX_LIVES;maxStreak=0;timerRemaining=TIME_LIMIT_MS;updateLives();
+  boostFlag=false;boostMistakes=0;
   const f=applyFilters();
   anime=f.slice().sort((a,b)=>a.score-b.score);N=anime.length;
   bins=buildBins(anime);buildRankOrder(f);
