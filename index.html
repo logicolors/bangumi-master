@@ -815,12 +815,12 @@ let pendingNext=null,runToken=0;
 let boostFlag=false,boostMistakes=0;
 
 function speedFactor(){
-  if(gameMode!=='timed')return 1;
+  if(gameMode!=='timed')return 0.9;
   const s=stats.streak;
   if(s>=8)return 0.4;
   if(s>=5)return 0.55;
   if(s>=2)return 0.75;
-  return boostFlag?0.9:1.0;
+  return 0.9;
 }
 
 function loadBest(){
