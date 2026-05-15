@@ -132,6 +132,15 @@ h1 {
   letter-spacing: 1px;
   color: var(--red);
 }
+#st-lives.is-timer {
+  color: var(--text);
+  letter-spacing: normal;
+  font-variant-numeric: tabular-nums;
+}
+#st-lives.is-timer-warn { color: var(--pink-deep); }
+#st-streak.is-speed-2 { color: #e9a23b; }
+#st-streak.is-speed-3 { color: var(--pink); }
+#st-streak.is-speed-4 { color: var(--red); text-shadow: 0 0 6px rgba(224,52,74,0.35); }
 
 /* ── Prompt ── */
 .prompt {
@@ -144,6 +153,10 @@ h1 {
 }
 .prompt.correct { color: var(--green); }
 .prompt.wrong   { color: var(--red); }
+.prompt.countdown {
+  color: var(--pink-deep); font-weight: 700;
+  font-size: 1.35rem; letter-spacing: 0.04em;
+}
 
 /* ── Arena ── */
 .arena {
@@ -296,6 +309,34 @@ h1 {
 
 
 /* ── Settings ── */
+.settings-row {
+  width: 100%;
+  max-width: 840px;
+  margin-top: 18px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.settings-row .settings { margin-top: 0; flex: 1; }
+.mode-toggle {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 9px 14px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  cursor: pointer;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  font-family: inherit;
+}
+.mode-toggle:hover { color: var(--text); }
+.mode-toggle[aria-pressed="true"] {
+  background: var(--pink-deep);
+  color: #fff;
+  border-color: var(--pink-deep);
+}
 .settings {
   width: 100%;
   max-width: 840px;
@@ -550,6 +591,18 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
   transition: background 0.15s;
 }
 .help-close:hover { background: var(--border); }
+.help-secondary {
+  margin-top: 8px; width: 100%;
+  background: transparent; color: var(--muted); border: 1px solid var(--border);
+  border-radius: 8px; padding: 9px 0; font-size: 0.85rem; cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.help-secondary:hover { background: var(--surface2); color: var(--text); }
+.mode-confirm-desc {
+  font-size: 0.85rem; color: var(--muted); line-height: 1.7;
+  margin: 4px 0 18px; text-align: center;
+}
+.mode-confirm-desc strong { color: var(--pink-deep); }
 
 .new-record {
   color: var(--pink);
@@ -557,6 +610,19 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
   font-size: 0.68rem;
   margin-left: 4px;
 }
+.mode-badge {
+  display: none;
+  margin: -6px auto 14px;
+  padding: 4px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  color: var(--pink-deep);
+  letter-spacing: 0.02em;
+  width: fit-content;
+}
+.mode-badge.show { display: inline-block; }
 
 @media (max-width: 520px) {
   .arena { gap: 6px; }
@@ -586,7 +652,7 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
   <div class="stats">
     <div class="stat-chip">
       <span class="stat-val" id="st-lives">♥♥♥♥♥</span>
-      <span class="stat-label">机会</span>
+      <span class="stat-label" id="st-lives-label">机会</span>
     </div>
     <div class="stat-chip">
       <span class="stat-val" id="st-streak">0</span>
@@ -594,7 +660,7 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
     </div>
     <div class="stat-chip">
       <span class="stat-val" id="st-total">0</span>
-      <span class="stat-label">已答</span>
+      <span class="stat-label" id="st-total-label">已答</span>
     </div>
   </div>
 </header>
@@ -629,6 +695,8 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
   </div>
 </div>
 
+<div class="settings-row">
+<button id="btn-mode" class="mode-toggle" type="button" aria-pressed="false">⏱ 限时模式</button>
 <details class="settings">
   <summary>⚙ 过滤设置 <span class="chevron">▼</span></summary>
   <div class="settings-body">
@@ -662,11 +730,13 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
     </div>
   </div>
 </details>
+</div>
 
 <div id="gameover" class="modal-overlay">
   <div class="gameover-box">
     <span class="gameover-icon" id="go-icon">🎬</span>
     <h2 id="go-title">游戏结束</h2>
+    <div id="go-mode" class="mode-badge"></div>
     <p id="go-stats"></p>
     <p id="go-best" style="font-size:0.78rem;color:var(--muted);margin-bottom:20px;line-height:1.9;"></p>
     <button id="go-restart">再来一局</button>
@@ -676,6 +746,18 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
       <summary>分差统计</summary>
       <div id="go-diff" class="go-diff"></div>
     </details>
+  </div>
+</div>
+
+<div id="mode-confirm" class="modal-overlay">
+  <div class="help-box">
+    <h3>切换到限时模式？</h3>
+    <p class="mode-confirm-desc">
+      <strong>90 秒</strong>倒计时挑战，无机会限制<br>
+      争取在时间用完前答对尽可能多的题目
+    </p>
+    <button class="help-close" id="btn-mode-confirm">开始限时挑战</button>
+    <button class="help-secondary" id="btn-mode-cancel">取消</button>
   </div>
 </div>
 
@@ -704,21 +786,37 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
 <div class="hint">数据来源：<a href="https://bangumi.tv/" target="_blank" rel="noopener" style="color:#0084b4;text-decoration:none;">Bangumi</a> &nbsp;·&nbsp; 灵感来源：<a href="https://rule34dle.vercel.app/" target="_blank" rel="noopener" style="color:#0084b4;text-decoration:none;">rule34dle</a> &nbsp;·&nbsp; 数据更新：26.05.13</div>
 
 <script>
-const LOCAL_SIGMA=0.30,SIGMA_MIN=0.10,WILD_CHANCE=0.28,GAUSS_MU=6.75,GAUSS_SIG=0.94;
+const LOCAL_SIGMA=0.30,SIGMA_MIN=0.10,GAUSS_MU=6.75,GAUSS_SIG=0.94;
+const SAMPLE_PARAMS={classic:{wc:0.28,p1:0.9,p2:0.5},timed:{wc:0.33,p1:1.0,p2:0.6}};
 const SITE_URL='bangumi-master.logicry.cc';
 let allAnime=[],anime=[],animeByRank=[],rankPosById={},N=0;
 const BIN_EDGES=[6.5,7.5];let bins=[];
-const MAX_LIVES=5,MASTER_GOAL=50,GOD_GOAL=100;
+const MAX_LIVES=5,MASTER_GOAL=50,GOD_GOAL=100,MASTER_GOAL_TIMED=30,GOD_GOAL_TIMED=40,TIME_LIMIT_MS=90000;
 let slots={a:null,b:null},stats={correct:0,total:0,streak:0},maxStreak=0,lives=MAX_LIVES,phase='loading',firstRound=true,seenIds=new Set();
-let bestTotal=0,bestStreak=0,goState=null,gameLog=null,mistakeCounts={},poolExhausted=false;
+let bestTotal=0,bestStreak=0,bestTimedCorrect=0,bestTimedStreak=0,goState=null,gameLog=null,mistakeCounts={},poolExhausted=false;
+let gameMode='classic',timerId=null,timerEndsAt=0,timerRemaining=TIME_LIMIT_MS;
+let pendingNext=null,runToken=0;
+
+function speedFactor(){
+  if(gameMode!=='timed')return 1;
+  const s=stats.streak;
+  if(s>=8)return 0.4;
+  if(s>=5)return 0.55;
+  if(s>=2)return 0.75;
+  return 1.0;
+}
 
 function loadBest(){
   bestTotal=parseInt(localStorage.getItem('bgm_best_total')||'0');
   bestStreak=parseInt(localStorage.getItem('bgm_best_streak')||'0');
+  bestTimedCorrect=parseInt(localStorage.getItem('bgm_best_timed_correct')||'0');
+  bestTimedStreak=parseInt(localStorage.getItem('bgm_best_timed_streak')||'0');
 }
 function saveBest(){
   localStorage.setItem('bgm_best_total',bestTotal);
   localStorage.setItem('bgm_best_streak',bestStreak);
+  localStorage.setItem('bgm_best_timed_correct',bestTimedCorrect);
+  localStorage.setItem('bgm_best_timed_streak',bestTimedStreak);
 }
 function loadMistakeCounts(){
   try{mistakeCounts=JSON.parse(localStorage.getItem('bgm_anime_mistakes')||'{}');}
@@ -756,7 +854,7 @@ function sampleNear(a,excl,mode){
 }
 
 function sampleNextCard(a,mode){
-  if(mode==null)mode=Math.random()<WILD_CHANCE?'jump':'walk';
+  if(mode==null)mode=Math.random()<SAMPLE_PARAMS[gameMode].wc?'jump':'walk';
   for(let i=0;i<20;i++){const c=sampleNear(a,a.id,mode);if(!seenIds.has(c.id))return{card:c,mode};}
   const u=anime.filter(x=>!seenIds.has(x.id)&&x.id!==a.id);
   return u.length?{card:u[Math.floor(Math.random()*u.length)],mode}:null;
@@ -766,11 +864,12 @@ function sampleNextCardConstrained(a){
   const r=sampleNextCard(a);
   if(!r)return null;
   const m=r.mode;let c=r.card;
+  const sp=SAMPLE_PARAMS[gameMode];
   // Step 1: one-shot probabilistic reroll on diff 0.1 / 0.2.
   const d10=Math.round(Math.abs(c.score-a.score)*10);
   let doReroll=false;
-  if(d10===1&&Math.random()<0.9)doReroll=true;
-  else if(d10===2&&Math.random()<0.5)doReroll=true;
+  if(d10===1&&Math.random()<sp.p1)doReroll=true;
+  else if(d10===2&&Math.random()<sp.p2)doReroll=true;
   if(doReroll){
     const r2=sampleNextCard(a,m);
     if(r2)c=r2.card;
@@ -829,12 +928,77 @@ function hideScores(){
 }
 
 function setPrompt(t,c){const el=$('prompt');el.textContent=t;el.className='prompt'+(c?' '+c:'');}
-function updateStats(){$('st-streak').textContent=stats.streak;$('st-total').textContent=stats.total;}
-function updateLives(){$('st-lives').textContent='♥'.repeat(lives)+'♡'.repeat(MAX_LIVES-lives);}
+function updateStats(){
+  const sk=$('st-streak');
+  sk.textContent=stats.streak;
+  sk.classList.remove('is-speed-2','is-speed-3','is-speed-4');
+  if(gameMode==='timed'){
+    const f=speedFactor();
+    if(f===0.4)sk.classList.add('is-speed-4');
+    else if(f===0.55)sk.classList.add('is-speed-3');
+    else if(f===0.75)sk.classList.add('is-speed-2');
+    $('st-total').textContent=stats.correct;
+    $('st-total-label').textContent='答对';
+  }else{
+    $('st-total').textContent=stats.total;
+    $('st-total-label').textContent='已答';
+  }
+}
+function updateLives(){
+  const el=$('st-lives');
+  if(gameMode==='timed'){
+    const ms=Math.max(0,timerRemaining);
+    const totalSec=Math.ceil(ms/1000);
+    const mm=Math.floor(totalSec/60),ss=totalSec%60;
+    el.textContent='⏱ '+mm+':'+(ss<10?'0':'')+ss;
+    el.classList.add('is-timer');
+    el.classList.toggle('is-timer-warn',ms<=10000);
+    $('st-lives-label').textContent='时间';
+  }else{
+    el.textContent='♥'.repeat(lives)+'♡'.repeat(MAX_LIVES-lives);
+    el.classList.remove('is-timer','is-timer-warn');
+    $('st-lives-label').textContent='机会';
+  }
+}
 
 function bumpStat(id){
   const el=$(id);el.classList.remove('bump');void el.offsetWidth;
   el.classList.add('bump');setTimeout(()=>el.classList.remove('bump'),200);
+}
+
+function tickTimer(){
+  timerRemaining=Math.max(0,timerEndsAt-performance.now());
+  updateLives();
+  if(timerRemaining===0){stopTimer();gameOver();}
+}
+function startTimer(){
+  stopTimer();
+  timerRemaining=TIME_LIMIT_MS;
+  timerEndsAt=performance.now()+timerRemaining;
+  updateLives();
+  timerId=setInterval(tickTimer,200);
+}
+function stopTimer(){
+  if(timerId!=null){clearInterval(timerId);timerId=null;}
+}
+let countdownId=null;
+function stopCountdown(){if(countdownId!=null){clearTimeout(countdownId);countdownId=null;}}
+function runCountdown(done){
+  stopCountdown();
+  const myRun=runToken;
+  const seq=['3','2','1','开始!'];
+  let i=0;
+  const step=()=>{
+    if(myRun!==runToken||phase!=='countdown'){countdownId=null;return;}
+    setPrompt(seq[i],'countdown');
+    i++;
+    if(i<seq.length){countdownId=setTimeout(step,700);}
+    else{countdownId=setTimeout(()=>{
+      if(myRun!==runToken)return;
+      countdownId=null;done();
+    },700);}
+  };
+  step();
 }
 
 const TIP_TAG_BLACKLIST=new Set(['TV','日本','动画','OVA','剧场版','WEB','短片','SP','TVSP','OAD','番剧','OP','ED']);
@@ -877,33 +1041,56 @@ function renderDiffBuckets(b){
 
 function gameOver(){
   phase='gameover';
+  stopTimer();
   const acc=stats.total?Math.round(stats.correct/stats.total*100):0;
-  const isGod=stats.total>=GOD_GOAL;
-  const isMaster=stats.total>=MASTER_GOAL;
-  const newBestTotal=stats.total>bestTotal;
-  const newBestStreak=maxStreak>bestStreak;
+  const isTimed=gameMode==='timed';
+  const isGod=isTimed?stats.correct>=GOD_GOAL_TIMED:stats.total>=GOD_GOAL;
+  const isMaster=isTimed?stats.correct>=MASTER_GOAL_TIMED:stats.total>=MASTER_GOAL;
+  const newBestTotal=!isTimed&&stats.total>bestTotal;
+  const newBestStreak=!isTimed&&maxStreak>bestStreak;
+  const newBestTimedCorrect=isTimed&&stats.correct>bestTimedCorrect;
+  const newBestTimedStreak=isTimed&&maxStreak>bestTimedStreak;
   if(newBestTotal)bestTotal=stats.total;
   if(newBestStreak)bestStreak=maxStreak;
-  if(newBestTotal||newBestStreak)saveBest();
-  $('go-icon').textContent=isGod?'⚡':isMaster?'🏆':'🎬';
-  const t=$('go-title');t.textContent=isGod?'你是古希腊掌管Bangumi的神！':isMaster?'你是Bangumi大师！':'游戏结束';
+  if(newBestTimedCorrect)bestTimedCorrect=stats.correct;
+  if(newBestTimedStreak)bestTimedStreak=maxStreak;
+  if(newBestTotal||newBestStreak||newBestTimedCorrect||newBestTimedStreak)saveBest();
+  $('go-icon').textContent=isGod?'⚡':isMaster?'🏆':isTimed?'⏱':'🎬';
+  const t=$('go-title');
+  t.textContent=isGod?'你是古希腊掌管Bangumi的神！':isMaster?'你是Bangumi大师！':isTimed?'时间到！':'游戏结束';
   t.className=(isGod||isMaster)?'is-master':'';
-  $('go-stats').innerHTML=
-    (poolExhausted?'<span style="color:var(--pink-deep);font-size:0.78rem">已用完所有符合条件的番剧</span><br>':'')+
-    '完成题目 <strong>'+stats.total+'</strong> 题'+(newBestTotal?'<span class="new-record">新纪录！</span>':'')+'<br>'+
-    '最高连击 <strong>'+maxStreak+'</strong> 连'+(newBestStreak?'<span class="new-record">新纪录！</span>':'')+'<br>'+
-    ((isGod||isMaster)
-      ?'<span style="color:var(--pink)">正确率 '+acc+'% — 恭喜！🎉</span>'
-      :'正确率 <strong>'+acc+'%</strong>');
-  $('go-best').innerHTML=bestTotal>0&&!(newBestTotal&&newBestStreak)
-    ?'历史最佳：完成 '+bestTotal+' 题 &nbsp;·&nbsp; 连击 '+bestStreak
-    :'';
-  const tip=(!isGod&&!isMaster)?pickTip(gameLog):null;
+  const mb=$('go-mode');
+  if(isTimed){mb.textContent='⏱ 限时模式 · 90 秒';mb.classList.add('show');}
+  else{mb.classList.remove('show');}
+  if(isTimed){
+    $('go-stats').innerHTML=
+      (poolExhausted?'<span style="color:var(--pink-deep);font-size:0.78rem">已用完所有符合条件的番剧</span><br>':'')+
+      '答对 <strong>'+stats.correct+'</strong> 题'+(newBestTimedCorrect?'<span class="new-record">新纪录！</span>':'')+'<br>'+
+      '最高连击 <strong>'+maxStreak+'</strong> 连'+(newBestTimedStreak?'<span class="new-record">新纪录！</span>':'')+'<br>'+
+      ((isGod||isMaster)
+        ?'<span style="color:var(--pink)">正确率 '+acc+'% — 恭喜！🎉</span>'
+        :'正确率 <strong>'+acc+'%</strong>');
+    $('go-best').innerHTML=bestTimedCorrect>0&&!(newBestTimedCorrect&&newBestTimedStreak)
+      ?'历史最佳：答对 '+bestTimedCorrect+' 题 &nbsp;·&nbsp; 连击 '+bestTimedStreak
+      :'';
+  }else{
+    $('go-stats').innerHTML=
+      (poolExhausted?'<span style="color:var(--pink-deep);font-size:0.78rem">已用完所有符合条件的番剧</span><br>':'')+
+      '完成题目 <strong>'+stats.total+'</strong> 题'+(newBestTotal?'<span class="new-record">新纪录！</span>':'')+'<br>'+
+      '最高连击 <strong>'+maxStreak+'</strong> 连'+(newBestStreak?'<span class="new-record">新纪录！</span>':'')+'<br>'+
+      ((isGod||isMaster)
+        ?'<span style="color:var(--pink)">正确率 '+acc+'% — 恭喜！🎉</span>'
+        :'正确率 <strong>'+acc+'%</strong>');
+    $('go-best').innerHTML=bestTotal>0&&!(newBestTotal&&newBestStreak)
+      ?'历史最佳：完成 '+bestTotal+' 题 &nbsp;·&nbsp; 连击 '+bestStreak
+      :'';
+  }
+  const tip=(!isTimed&&!isGod&&!isMaster)?pickTip(gameLog):null;
   if(tip){$('go-tip').textContent=tip;$('go-tip').classList.add('show');}
   else{$('go-tip').textContent='';$('go-tip').classList.remove('show');}
   $('go-diff').innerHTML=stats.total>0?renderDiffBuckets(gameLog.diffBuckets):'';
   $('go-diff-wrap').style.display=stats.total>0?'':'none';
-  goState={isGod,isMaster,total:stats.total,maxStreak,acc,bestTotal,bestStreak,newBestTotal,newBestStreak,tip,diffBuckets:gameLog?gameLog.diffBuckets.slice():[0,0,0,0]};
+  goState={mode:gameMode,isGod,isMaster,total:stats.total,correct:stats.correct,maxStreak,acc,bestTotal,bestStreak,bestTimedCorrect,bestTimedStreak,newBestTotal,newBestStreak,newBestTimedCorrect,newBestTimedStreak,tip,diffBuckets:gameLog?gameLog.diffBuckets.slice():[0,0,0,0]};
   $('gameover').classList.add('show');
 }
 
@@ -929,7 +1116,7 @@ function onSelect(side){
   $('card-'+hi).classList.add('state-winner');
   stats.total++;
   if(isRight){stats.correct++;stats.streak++;if(stats.streak>maxStreak)maxStreak=stats.streak;bumpStat('st-streak');}
-  else{stats.streak=0;lives--;updateLives();}
+  else{stats.streak=0;if(gameMode!=='timed'){lives--;updateLives();}}
   bumpStat('st-total');updateStats();
   const diffNum=Math.abs(slots.a.score-slots.b.score);
   const diff=diffNum.toFixed(1);
@@ -962,25 +1149,52 @@ function onSelect(side){
   setPrompt(
     isTie?'平局！两部都是'+slots.a.score.toFixed(1)+'分':
     isRight?'✓ 答对了！分差'+diff+'分':
-    '✗ 答错了，分差'+diff+'分（剩余机会'+lives+'）',
+    '✗ 答错了，分差'+diff+(gameMode==='timed'?'分':'分（剩余机会'+lives+'）'),
     isRight?'correct':'wrong'
   );
-  setTimeout(()=>{if(lives<=0)gameOver();else advance();},1800);
+  const f=speedFactor();
+  if(gameMode==='timed')preloadNextCard();
+  const myRun=runToken;
+  setTimeout(()=>{
+    if(myRun!==runToken||phase==='gameover')return;
+    if(gameMode!=='timed'&&lives<=0)gameOver();
+    else if(gameMode==='timed'&&timerRemaining<=0)gameOver();
+    else advance();
+  },Math.round(1800*f));
+}
+
+function preloadNextCard(){
+  if(pendingNext)return;
+  const nx=sampleNextCardConstrained(slots.b);
+  if(!nx)return;
+  seenIds.add(nx.id);
+  pendingNext=nx;
+  if(nx.image_url){const im=new Image();im.src=nx.image_url;}
 }
 
 function advance(){
   hideScores();
+  const f=speedFactor();
+  const myRun=runToken;
   setTimeout(()=>{
-    $('overlay-b').classList.add('flash');
+    if(myRun!==runToken)return;
+    const ov=$('overlay-b');
+    ov.style.transitionDuration=Math.round(250*f)+'ms';
+    ov.classList.add('flash');
     setTimeout(()=>{
+      if(myRun!==runToken)return;
       slots.a=slots.b;
-      const nx=sampleNextCardConstrained(slots.a);
-      if(!nx){$('overlay-b').classList.remove('flash');poolExhausted=true;gameOver();return;}
-      seenIds.add(nx.id);slots.b=nx;
-      $('overlay-b').classList.remove('flash');
+      let nx=pendingNext;pendingNext=null;
+      if(!nx){
+        nx=sampleNextCardConstrained(slots.a);
+        if(!nx){ov.classList.remove('flash');poolExhausted=true;gameOver();return;}
+        seenIds.add(nx.id);
+      }
+      slots.b=nx;
+      ov.classList.remove('flash');
       phase='playing';renderPlaying();
-    },280);
-  },400);
+    },Math.round(280*f));
+  },Math.round(400*f));
 }
 
 function buildBins(p){
@@ -1016,11 +1230,12 @@ function applyFilters(){
 }
 
 function restart(){
+  stopTimer();stopCountdown();pendingNext=null;runToken++;
   $('overlay-a').classList.remove('flash');$('overlay-b').classList.remove('flash');
   $('gameover').classList.remove('show');
   $('go-tip').textContent='';$('go-tip').classList.remove('show');
   $('go-diff').innerHTML='';$('go-diff-wrap').open=false;
-  lives=MAX_LIVES;maxStreak=0;updateLives();
+  lives=MAX_LIVES;maxStreak=0;timerRemaining=TIME_LIMIT_MS;updateLives();
   const f=applyFilters();
   anime=f.slice().sort((a,b)=>a.score-b.score);N=anime.length;
   bins=buildBins(anime);buildRankOrder(f);
@@ -1045,7 +1260,19 @@ function restart(){
     return;
   }
   seenIds.add(slots.b.id);
-  phase='playing';renderPlaying();
+  if(gameMode==='timed'){
+    phase='countdown';
+    renderPlaying();
+    $('card-a').classList.add('locked');$('card-b').classList.add('locked');
+    runCountdown(()=>{
+      phase='playing';
+      $('card-a').classList.remove('locked');$('card-b').classList.remove('locked');
+      setPrompt('哪部番剧的评分更高？');
+      startTimer();
+    });
+  }else{
+    phase='playing';renderPlaying();
+  }
 }
 
 function initControls(){
@@ -1054,6 +1281,25 @@ function initControls(){
   $('sl-yr-max').addEventListener('input',()=>$('lbl-yr-max').textContent=$('sl-yr-max').value);
   $('btn-restart').addEventListener('click',restart);
   $('go-restart').addEventListener('click',restart);
+  function applyModeButton(){
+    const btn=$('btn-mode');
+    const active=gameMode==='timed';
+    btn.setAttribute('aria-pressed',active?'true':'false');
+    btn.textContent=active?'⏱ 限时模式 · 开':'⏱ 限时模式';
+  }
+  $('btn-mode').addEventListener('click',()=>{
+    if(gameMode==='timed'){
+      gameMode='classic';applyModeButton();restart();
+    }else{
+      $('mode-confirm').classList.add('show');
+    }
+  });
+  $('btn-mode-confirm').addEventListener('click',()=>{
+    $('mode-confirm').classList.remove('show');
+    gameMode='timed';applyModeButton();restart();
+  });
+  $('btn-mode-cancel').addEventListener('click',()=>$('mode-confirm').classList.remove('show'));
+  $('mode-confirm').addEventListener('click',e=>{if(e.target===$('mode-confirm'))$('mode-confirm').classList.remove('show');});
   $('btn-help').addEventListener('click',()=>$('help-overlay').classList.add('show'));
   $('btn-help-close').addEventListener('click',()=>$('help-overlay').classList.remove('show'));
   $('help-overlay').addEventListener('click',e=>{if(e.target===$('help-overlay'))$('help-overlay').classList.remove('show');});
@@ -1084,12 +1330,14 @@ function drawResultCard(){
   ctx.textAlign='center';
   ctx.fillText('目标是Bangumi大师',W/2,44);
 
+  const isTimed=s.mode==='timed';
+
   // Icon
   ctx.font='54px serif';
-  ctx.fillText(s.isGod?'⚡':s.isMaster?'🏆':'🎬',W/2,108);
+  ctx.fillText(s.isGod?'⚡':s.isMaster?'🏆':isTimed?'⏱':'🎬',W/2,108);
 
   // Result heading
-  const heading=s.isGod?'你是古希腊掌管Bangumi的神！':s.isMaster?'你是Bangumi大师！':'游戏结束';
+  const heading=s.isGod?'你是古希腊掌管Bangumi的神！':s.isMaster?'你是Bangumi大师！':isTimed?'时间到！':'游戏结束';
   ctx.font='bold '+(s.isGod?17:22)+'px '+FONT;
   if(s.isGod||s.isMaster){
     const tg=ctx.createLinearGradient(W/2-80,0,W/2+80,0);
@@ -1100,17 +1348,34 @@ function drawResultCard(){
   }
   ctx.fillText(heading,W/2,148);
 
+  // Mode badge (timed only)
+  if(isTimed){
+    const badge='⏱ 限时模式 · 90 秒';
+    ctx.font='11px '+FONT;
+    const bw=ctx.measureText(badge).width+18;
+    const bx=W/2-bw/2,by=160;
+    ctx.fillStyle='#fbeef0';
+    ctx.beginPath();ctx.roundRect(bx,by,bw,18,9);ctx.fill();
+    ctx.fillStyle='#e07282';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(badge,W/2,by+9);
+    ctx.textBaseline='alphabetic';
+  }
+
   // Divider
   ctx.strokeStyle='#d8d8e8';ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(48,168);ctx.lineTo(W-48,168);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(48,isTimed?188:168);ctx.lineTo(W-48,isTimed?188:168);ctx.stroke();
 
   // Stats rows
-  const rows=[
+  const rows=isTimed?[
+    ['答对题数',s.correct+' 题'],
+    ['最高连击',s.maxStreak+' 连'],
+    ['正确率',s.acc+'%'],
+  ]:[
     ['完成题目',s.total+' 题'],
     ['最高连击',s.maxStreak+' 连'],
     ['正确率',s.acc+'%'],
   ];
-  let ry=212;
+  let ry=isTimed?228:212;
   rows.forEach(([label,val])=>{
     ctx.font='13px '+FONT;ctx.fillStyle='#8e8ea0';ctx.textAlign='left';
     ctx.fillText(label,72,ry);
@@ -1127,11 +1392,14 @@ function drawResultCard(){
   }
 
   // Historical best
-  if(s.bestTotal>0){
+  const bestLine=isTimed
+    ?(s.bestTimedCorrect>0?'历史最佳：答对 '+s.bestTimedCorrect+' 题  ·  连击 '+s.bestTimedStreak:'')
+    :(s.bestTotal>0?'历史最佳：完成 '+s.bestTotal+' 题  ·  连击 '+s.bestStreak:'');
+  if(bestLine){
     ctx.strokeStyle='#d8d8e8';ctx.lineWidth=1;
     ctx.beginPath();ctx.moveTo(48,ry+8);ctx.lineTo(W-48,ry+8);ctx.stroke();
     ctx.font='12px '+FONT;ctx.fillStyle='#8e8ea0';ctx.textAlign='center';
-    ctx.fillText('历史最佳：完成 '+s.bestTotal+' 题  ·  连击 '+s.bestStreak,W/2,ry+30);
+    ctx.fillText(bestLine,W/2,ry+30);
   }
 
   // Footer
