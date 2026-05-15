@@ -723,6 +723,8 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
       <label><input type="checkbox" id="cb-pamen" checked> 排除泡面番</label>
       <label><input type="checkbox" id="cb-oumei" checked> 排除欧美</label>
       <label><input type="checkbox" id="cb-short" checked> 排除短片</label>
+      <label><input type="checkbox" id="cb-recap" checked> 排除总集篇</label>
+      <label><input type="checkbox" id="cb-unaired" checked> 排除未播出</label>
     </div>
     <div class="param param-restart">
       <div class="param-desc" style="margin-bottom:8px">候选池：<strong id="pool-size">—</strong></div>
@@ -789,6 +791,7 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
 const LOCAL_SIGMA=0.30,SIGMA_MIN=0.10,GAUSS_MU=6.75,GAUSS_SIG=0.94;
 const SAMPLE_PARAMS={classic:{wc:0.28,p1:0.9,p2:0.5},timed:{wc:0.33,p1:1.0,p2:0.6}};
 const SITE_URL='bangumi-master.logicry.cc';
+const DATA_DATE='2026-05-13';
 let allAnime=[],anime=[],animeByRank=[],rankPosById={},N=0;
 const BIN_EDGES=[6.5,7.5];let bins=[];
 const MAX_LIVES=5,MASTER_GOAL=50,GOD_GOAL=100,MASTER_GOAL_TIMED=30,GOD_GOAL_TIMED=40,TIME_LIMIT_MS=90000;
@@ -1219,10 +1222,12 @@ function applyFilters(){
         yx=parseInt($('sl-yr-max').value),nlb=ym<=1996,
         ng=$('cb-guochan').checked,nt=$('cb-theatre').checked,
         no=$('cb-ova').checked,np=$('cb-pamen').checked,
-        nom=$('cb-oumei').checked,ns=$('cb-short').checked;
+        nom=$('cb-oumei').checked,ns=$('cb-short').checked,
+        nr=$('cb-recap').checked,nu=$('cb-unaired').checked;
   return allAnime.filter(a=>{
     if(a.vote_count<mv)return false;
     if(a.air_date){const y=parseInt(a.air_date.substring(0,4));if(!nlb&&y<ym)return false;if(y>yx)return false;}
+    if(nu&&a.air_date&&a.air_date>DATA_DATE)return false;
     const tags=Array.isArray(a.tags)?a.tags:[];
     if(ng&&tags.includes('国产'))return false;
     if(nt&&tags.includes('剧场版'))return false;
@@ -1230,6 +1235,7 @@ function applyFilters(){
     if(np&&tags.includes('泡面番'))return false;
     if(nom&&tags.includes('欧美'))return false;
     if(ns&&tags.includes('短片'))return false;
+    if(nr&&tags.includes('总集篇'))return false;
     return true;
   });
 }
