@@ -262,6 +262,20 @@ h1 {
   color: var(--text);
 }
 
+.card-link {
+  display: none;
+  font-size: 0.68rem;
+  color: var(--pink);
+  text-decoration: none;
+  margin-left: 6px;
+  border: 1px solid var(--pink);
+  border-radius: 4px;
+  padding: 0 3px;
+  transition: background 0.15s, color 0.15s;
+}
+.card-link.show { display: inline; }
+.card-link:hover { background: var(--pink); color: #fff; }
+
 .card-date {
   font-size: 0.68rem;
   color: var(--muted);
@@ -672,7 +686,7 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
     <div class="card-cover-wrap"><img class="card-cover" id="img-a" alt=""></div>
     <div class="card-overlay" id="overlay-a"></div>
     <div class="card-body">
-      <div class="card-name" id="name-a"></div>
+      <div class="card-name"><span id="name-a"></span><a class="card-link" id="link-a" target="_blank" rel="noopener" title="在 Bangumi 查看" onclick="event.stopPropagation()">↗</a></div>
       <div class="card-date" id="date-a"></div>
       <div class="card-score-wrap">
         <div class="card-score" id="score-a"></div>
@@ -685,7 +699,7 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
     <div class="card-cover-wrap"><img class="card-cover" id="img-b" alt=""></div>
     <div class="card-overlay" id="overlay-b"></div>
     <div class="card-body">
-      <div class="card-name" id="name-b"></div>
+      <div class="card-name"><span id="name-b"></span><a class="card-link" id="link-b" target="_blank" rel="noopener" title="在 Bangumi 查看" onclick="event.stopPropagation()">↗</a></div>
       <div class="card-date" id="date-b"></div>
       <div class="card-score-wrap">
         <div class="card-score" id="score-b"></div>
@@ -790,7 +804,7 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
 const LOCAL_SIGMA=0.30,SIGMA_MIN=0.10,GAUSS_MU=6.75,GAUSS_SIG=0.94;
 const SAMPLE_PARAMS={classic:{wc:0.28,p1:0.9,p2:0.5},timed:{wc:0.33,p1:1.0,p2:0.6}};
 const SITE_URL='bangumi-master.logicry.cc';
-const DATA_DATE='2026-05-13';
+let DATA_DATE='';
 let allAnime=[],anime=[],animeByRank=[],rankPosById={},N=0;
 const BIN_EDGES=[6.5,7.5];let bins=[];
 const MAX_LIVES=5,MASTER_GOAL=50,GOD_GOAL=100,MASTER_GOAL_TIMED=30,GOD_GOAL_TIMED=40,TIME_LIMIT_MS=90000;
@@ -903,6 +917,7 @@ function fillCard(s,e,sm){
   img.src=e.image_url||'';
   if(img.complete&&img.naturalWidth>0)img.style.opacity='1';
   $('name-'+s).textContent=e.name_cn||e.name;
+  const lnk=$('link-'+s);if(sm==='score'){lnk.href='https://bangumi.tv/subject/'+e.id;lnk.classList.add('show');}else{lnk.classList.remove('show');}
   $('date-'+s).textContent=formatDate(e.air_date)+(e.vote_count?' · '+e.vote_count+' 人评分':'');
   $('card-'+s).className='card';
   $('badge-'+s).textContent='';$('badge-'+s).classList.remove('show');
@@ -1226,7 +1241,7 @@ function applyFilters(){
   return allAnime.filter(a=>{
     if(a.vote_count<mv)return false;
     if(a.air_date){const y=parseInt(a.air_date.substring(0,4));if(!nlb&&y<ym)return false;if(y>yx)return false;}
-    if(a.air_date&&a.air_date>DATA_DATE)return false;
+    if(DATA_DATE&&a.air_date&&a.air_date>DATA_DATE)return false;
     const tags=Array.isArray(a.tags)?a.tags:[];
     if(ng&&tags.includes('国产'))return false;
     if(nt&&tags.includes('剧场版'))return false;
@@ -1434,7 +1449,12 @@ async function init(){
   initControls();
   loadBest();
   loadMistakeCounts();
-  allAnime=await fetch('data/anime_list.json').then(r=>r.json());
+  const [list,meta]=await Promise.all([
+    fetch('data/anime_list.json').then(r=>r.json()),
+    fetch('data/anime_meta.json').then(r=>r.json()).catch(()=>({})),
+  ]);
+  allAnime=list;
+  DATA_DATE=(meta&&meta.collected_at)||'';
   $('loading').style.display='none';
   restart();
 }
