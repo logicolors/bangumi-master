@@ -71,7 +71,6 @@ h1 {
 
 #btn-help, #btn-mute {
   position: absolute;
-  top: 22px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 50%;
@@ -87,8 +86,8 @@ h1 {
   font-weight: 700;
   box-shadow: 0 1px 4px rgba(0,0,0,0.08);
 }
-#btn-help { right: 0; }
-#btn-mute { right: 36px; font-size: 0.85rem; }
+#btn-help { right: 0; top: 22px; }
+#btn-mute { right: 0; top: 56px; font-size: 0.85rem; }
 #btn-help:hover, #btn-mute:hover { border-color: var(--pink); color: var(--pink); }
 #btn-mute.is-muted { color: var(--pink); border-color: var(--pink); }
 
