@@ -69,10 +69,9 @@ h1 {
   letter-spacing: 0.04em;
 }
 
-#btn-help {
+#btn-help, #btn-mute {
   position: absolute;
   top: 22px;
-  right: 0;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 50%;
@@ -88,7 +87,10 @@ h1 {
   font-weight: 700;
   box-shadow: 0 1px 4px rgba(0,0,0,0.08);
 }
-#btn-help:hover { border-color: var(--pink); color: var(--pink); }
+#btn-help { right: 0; }
+#btn-mute { right: 36px; font-size: 0.85rem; }
+#btn-help:hover, #btn-mute:hover { border-color: var(--pink); color: var(--pink); }
+#btn-mute.is-muted { color: var(--pink); border-color: var(--pink); }
 
 /* ── Stats bar ── */
 .stats {
@@ -662,6 +664,7 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
 <header>
   <h1>目标是Bangumi大师</h1>
   <p class="subtitle">Bangumi Master &nbsp;·&nbsp; 哪部番剧的评分更高？</p>
+  <button id="btn-mute" title="静音切换">🔊</button>
   <button id="btn-help" title="玩法说明">?</button>
   <div class="stats">
     <div class="stat-chip">
@@ -848,6 +851,51 @@ function newGameLog(){
 }
 
 function randn(){const u=1-Math.random(),v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+
+let audioCtx=null;
+let SOUND_MUTED=false;
+function ensureAudio(){
+  if(audioCtx)return audioCtx;
+  try{audioCtx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){return null;}
+  return audioCtx;
+}
+function playTone(freq,dur,type,gain,delay){
+  const ctx=ensureAudio();if(!ctx)return;
+  if(ctx.state==='suspended')ctx.resume();
+  const t0=ctx.currentTime+(delay||0);
+  const osc=ctx.createOscillator(),g=ctx.createGain();
+  osc.type=type||'sine';osc.frequency.value=freq;
+  g.gain.setValueAtTime(0,t0);
+  g.gain.linearRampToValueAtTime(gain||0.18,t0+0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  osc.connect(g);g.connect(ctx.destination);
+  osc.start(t0);osc.stop(t0+dur+0.02);
+}
+function playNoise(dur,gain,filterFreq,delay){
+  const ctx=ensureAudio();if(!ctx)return;
+  if(ctx.state==='suspended')ctx.resume();
+  const t0=ctx.currentTime+(delay||0);
+  const len=Math.floor(ctx.sampleRate*dur);
+  const buf=ctx.createBuffer(1,len,ctx.sampleRate);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<len;i++)d[i]=(Math.random()*2-1);
+  const src=ctx.createBufferSource();src.buffer=buf;
+  const filt=ctx.createBiquadFilter();filt.type='lowpass';filt.frequency.value=filterFreq||2000;
+  const g=ctx.createGain();
+  g.gain.setValueAtTime(0,t0);
+  g.gain.linearRampToValueAtTime(gain||0.12,t0+0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  src.connect(filt);filt.connect(g);g.connect(ctx.destination);
+  src.start(t0);src.stop(t0+dur+0.02);
+}
+const SOUND_PRESETS={
+  click:{
+    correct:()=>{playNoise(0.04,0.18,8000,0);playTone(1200,0.06,'sine',0.10,0.02);},
+    wrong:()=>{playNoise(0.08,0.22,800,0);}
+  }
+};
+function playCorrect(){if(SOUND_MUTED)return;SOUND_PRESETS.click.correct();}
+function playWrong(){if(SOUND_MUTED)return;SOUND_PRESETS.click.wrong();}
 
 function sampleNearRank(a,excl,so){
   const nr=animeByRank.length,ap=rankPosById[a.id]??Math.random(),sig=so??LOCAL_SIGMA;
@@ -1133,10 +1181,10 @@ function onSelect(side){
   $('card-'+side).classList.add(isRight?'state-correct':'state-wrong');
   $('card-'+hi).classList.add('state-winner');
   stats.total++;
-  if(isRight){stats.correct++;stats.streak++;if(stats.streak>maxStreak)maxStreak=stats.streak;bumpStat('st-streak');
+  if(isRight){playCorrect();stats.correct++;stats.streak++;if(stats.streak>maxStreak)maxStreak=stats.streak;bumpStat('st-streak');
     if(stats.streak>=5){boostFlag=true;boostMistakes=0;}
   }
-  else{stats.streak=0;if(gameMode!=='timed'){lives--;updateLives();}
+  else{playWrong();stats.streak=0;if(gameMode!=='timed'){lives--;updateLives();}
     if(boostFlag){boostMistakes++;if(boostMistakes>=2)boostFlag=false;}
   }
   bumpStat('st-total');updateStats();
@@ -1327,6 +1375,19 @@ function initControls(){
   $('btn-mode-cancel').addEventListener('click',()=>$('mode-confirm').classList.remove('show'));
   $('mode-confirm').addEventListener('click',e=>{if(e.target===$('mode-confirm'))$('mode-confirm').classList.remove('show');});
   $('btn-help').addEventListener('click',()=>$('help-overlay').classList.add('show'));
+  function applyMute(){
+    const b=$('btn-mute');
+    b.textContent=SOUND_MUTED?'🔇':'🔊';
+    b.classList.toggle('is-muted',SOUND_MUTED);
+  }
+  SOUND_MUTED=localStorage.getItem('bgm_muted')==='1';
+  applyMute();
+  $('btn-mute').addEventListener('click',()=>{
+    SOUND_MUTED=!SOUND_MUTED;
+    localStorage.setItem('bgm_muted',SOUND_MUTED?'1':'0');
+    applyMute();
+    if(!SOUND_MUTED)playCorrect();
+  });
   $('btn-help-close').addEventListener('click',()=>$('help-overlay').classList.remove('show'));
   $('help-overlay').addEventListener('click',e=>{if(e.target===$('help-overlay'))$('help-overlay').classList.remove('show');});
 }
