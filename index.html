@@ -385,6 +385,25 @@ h1 {
 }
 .settings[open] summary .chevron { transform: rotate(180deg); }
 
+.preset-chip {
+  margin-left: 10px;
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  color: var(--muted);
+  background: var(--surface);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.preset-chip:hover { color: var(--pink-deep); border-color: var(--pink); }
+.preset-chip.active {
+  background: var(--pink-deep);
+  color: #fff;
+  border-color: var(--pink-deep);
+}
+
 .settings-body {
   display: flex;
   flex-wrap: wrap;
@@ -715,7 +734,7 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
 <div class="settings-row">
 <button id="btn-mode" class="mode-toggle" type="button" aria-pressed="false">⏱ 限时模式</button>
 <details class="settings">
-  <summary>⚙ 过滤设置 <span class="chevron">▼</span></summary>
+  <summary>⚙ 过滤设置 <button id="btn-preset-recent" class="preset-chip" type="button" title="只看近10年">近10年</button> <span class="chevron">▼</span></summary>
   <div class="settings-body">
     <div class="param">
       <div class="param-label">最低评分人数 <strong id="lbl-votes">500</strong></div>
@@ -1350,9 +1369,31 @@ function restart(){
 }
 
 function initControls(){
+  const yMin=$('sl-yr-min'),yMax=$('sl-yr-max'),lblMin=$('lbl-yr-min'),lblMax=$('lbl-yr-max');
+  const yrCap=parseInt(yMax.max);
+  function updatePresetActive(){
+    const lo=parseInt(yMin.value),hi=parseInt(yMax.value);
+    const recent=hi===yrCap&&lo===yrCap-10;
+    $('btn-preset-recent').classList.toggle('active',recent);
+  }
   $('sl-votes').addEventListener('input',()=>$('lbl-votes').textContent=$('sl-votes').value);
-  $('sl-yr-min').addEventListener('input',()=>{const v=parseInt($('sl-yr-min').value);$('lbl-yr-min').textContent=v<=1996?'不限':v;});
-  $('sl-yr-max').addEventListener('input',()=>$('lbl-yr-max').textContent=$('sl-yr-max').value);
+  yMin.addEventListener('input',()=>{const v=parseInt(yMin.value);lblMin.textContent=v<=1996?'不限':v;updatePresetActive();});
+  yMax.addEventListener('input',()=>{lblMax.textContent=yMax.value;updatePresetActive();});
+  $('btn-preset-recent').addEventListener('click',e=>{
+    e.preventDefault();e.stopPropagation();
+    const lo=parseInt(yMin.value),hi=parseInt(yMax.value);
+    const active=hi===yrCap&&lo===yrCap-10;
+    if(active){
+      yMin.value=parseInt(yMin.min);yMax.value=yrCap;
+      lblMin.textContent='不限';lblMax.textContent=yrCap;
+    }else{
+      yMax.value=yrCap;yMin.value=yrCap-10;
+      lblMax.textContent=yrCap;lblMin.textContent=yrCap-10;
+    }
+    updatePresetActive();
+    restart();
+  });
+  updatePresetActive();
   $('btn-restart').addEventListener('click',restart);
   $('go-restart').addEventListener('click',restart);
   function applyModeButton(){
