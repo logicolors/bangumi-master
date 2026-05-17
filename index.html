@@ -854,7 +854,7 @@ const SITE_URL='bangumi-master.logicry.cc';
 const BANNED_IDS=new Set([150955,185761,190704,226677,231647,262162,278429,339266,303399,321117,381212,386475,236657,467909,488960,425587,449154,529995,518413,567417]);
 let DATA_DATE='';
 let allAnime=[],anime=[],animeByRank=[],rankPosById={},N=0;
-const BIN_EDGES=[6.5,7.5];let bins=[];
+const BIN_EDGES=[6.0,7.0,7.5],BIN_WEIGHTS=[0.2,0.22,0.28,0.3];let bins=[];
 const MAX_LIVES=5,MASTER_GOAL=50,GOD_GOAL=100,MASTER_GOAL_TIMED=30,GOD_GOAL_TIMED=40,TIME_LIMIT_MS=90000;
 let slots={a:null,b:null},stats={correct:0,total:0,streak:0},maxStreak=0,lives=MAX_LIVES,phase='loading',firstRound=true,seenIds=new Set();
 let bestTotal=0,bestStreak=0,bestTimedCorrect=0,bestTimedStreak=0,goState=null,gameLog=null,mistakeCounts={},poolExhausted=false;
@@ -952,7 +952,11 @@ function sampleNearRank(a,excl,so){
 
 function sampleNear(a,excl,mode){
   if(mode==='jump'){
-    const bi=Math.floor(Math.random()*bins.length),bin=bins[bi];
+    let bi=0,r=Math.random();
+    for(;bi<BIN_WEIGHTS.length;bi++){r-=BIN_WEIGHTS[bi];if(r<=0)break;}
+    if(bi>=BIN_WEIGHTS.length)bi=BIN_WEIGHTS.length-1;
+    if(bins[bi].length===0)bi=bins.findIndex(b=>b.length>0);
+    const bin=bins[bi];
     let i=bin[Math.floor(Math.random()*bin.length)];
     if(anime[i].id===excl)i=bin[(bin.indexOf(i)+1)%bin.length];
     return anime[i];
