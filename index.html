@@ -429,6 +429,20 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
 .param-warn { font-size: 0.68rem; color: var(--pink-deep); line-height: 1.4; margin-top: 2px; }
 .rank-range { display: flex; gap: 10px; align-items: center; }
 .rank-range input[type=range] { flex: 1; min-width: 0; }
+.param-collapse > summary {
+  list-style: none; cursor: pointer;
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.75rem; color: var(--muted);
+}
+.param-collapse > summary::-webkit-details-marker { display: none; }
+.param-collapse > summary .chevron {
+  font-size: 0.6rem; transition: transform 0.2s; margin-left: auto;
+}
+.param-collapse[open] > summary .chevron { transform: rotate(180deg); }
+.param-collapse > summary .param-collapse-val { font-weight: 700; color: var(--text); }
+.param-collapse > .rank-range,
+.param-collapse > .param-desc,
+.param-collapse > .param-warn { margin-top: 6px; }
 
 .settings-sep { width: 100%; height: 1px; background: var(--border); margin: 2px 0; }
 
@@ -752,15 +766,15 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
       <div class="param-label">结束年份 <strong id="lbl-yr-max">2026</strong></div>
       <input type="range" id="sl-yr-max" min="1996" max="2026" step="1" value="2026">
     </div>
-    <div class="param">
-      <div class="param-label">排名百分位 <strong><span id="lbl-rank-lo">0</span>% – <span id="lbl-rank-hi">100</span>%</strong></div>
+    <details class="param param-collapse">
+      <summary><span class="param-collapse-title">排名百分位</span> <strong class="param-collapse-val"><span id="lbl-rank-lo">0</span>% – <span id="lbl-rank-hi">100</span>%</strong> <span class="chevron">▼</span></summary>
       <div class="rank-range">
         <input type="range" id="sl-rank-lo" min="0" max="100" step="5" value="0">
         <input type="range" id="sl-rank-hi" min="0" max="100" step="5" value="100">
       </div>
       <div class="param-desc">按当前候选池内评分排名截取（0% = 最高分，100% = 最低分），其他过滤先生效</div>
       <div class="param-warn">⚠ 谨慎调整：缩窄范围会让候选番剧的评分分布更密集，匹配难度上升</div>
-    </div>
+    </details>
     <div class="settings-sep"></div>
     <div class="param param-checks">
       <div class="param-label" style="margin-bottom:6px">排除标签</div>
