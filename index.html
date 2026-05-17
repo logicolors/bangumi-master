@@ -426,6 +426,9 @@ h1 {
 .param-label strong { color: var(--text); font-weight: 700; }
 input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
 .param-desc { font-size: 0.68rem; color: var(--muted); line-height: 1.4; }
+.param-warn { font-size: 0.68rem; color: var(--pink-deep); line-height: 1.4; margin-top: 2px; }
+.rank-range { display: flex; gap: 10px; align-items: center; }
+.rank-range input[type=range] { flex: 1; min-width: 0; }
 
 .settings-sep { width: 100%; height: 1px; background: var(--border); margin: 2px 0; }
 
@@ -748,6 +751,15 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
     <div class="param">
       <div class="param-label">结束年份 <strong id="lbl-yr-max">2026</strong></div>
       <input type="range" id="sl-yr-max" min="1996" max="2026" step="1" value="2026">
+    </div>
+    <div class="param">
+      <div class="param-label">排名百分位 <strong><span id="lbl-rank-lo">0</span>% – <span id="lbl-rank-hi">100</span>%</strong></div>
+      <div class="rank-range">
+        <input type="range" id="sl-rank-lo" min="0" max="100" step="5" value="0">
+        <input type="range" id="sl-rank-hi" min="0" max="100" step="5" value="100">
+      </div>
+      <div class="param-desc">按当前候选池内评分排名截取（0% = 最高分，100% = 最低分），其他过滤先生效</div>
+      <div class="param-warn">⚠ 谨慎调整：缩窄范围会让候选番剧的评分分布更密集，匹配难度上升</div>
     </div>
     <div class="settings-sep"></div>
     <div class="param param-checks">
@@ -1305,7 +1317,7 @@ function applyFilters(){
         no=$('cb-ova').checked,np=$('cb-pamen').checked,
         nom=$('cb-oumei').checked,ns=$('cb-short').checked,
         nr=$('cb-recap').checked;
-  return allAnime.filter(a=>{
+  const base=allAnime.filter(a=>{
     if(BANNED_IDS.has(a.id))return false;
     if(a.vote_count<mv)return false;
     if(a.air_date){const am=a.air_date.substring(0,7);if(!nlb&&am<ym+'-01')return false;if(am>yx+'-12')return false;}
@@ -1320,6 +1332,13 @@ function applyFilters(){
     if(nr&&tags.includes('总集篇'))return false;
     return true;
   });
+  const rlo=parseInt($('sl-rank-lo').value),rhi=parseInt($('sl-rank-hi').value);
+  if(rlo===0&&rhi===100)return base;
+  const sorted=base.slice().sort((a,b)=>b.score-a.score);
+  const n=sorted.length;
+  const iLo=Math.floor(n*rlo/100),iHi=Math.ceil(n*rhi/100);
+  const kept=new Set(sorted.slice(iLo,iHi).map(a=>a.id));
+  return base.filter(a=>kept.has(a.id));
 }
 
 function restart(){
@@ -1380,6 +1399,9 @@ function initControls(){
   $('sl-votes').addEventListener('input',()=>$('lbl-votes').textContent=$('sl-votes').value);
   yMin.addEventListener('input',()=>{const v=parseInt(yMin.value);lblMin.textContent=v<=1996?'不限':v;updatePresetActive();});
   yMax.addEventListener('input',()=>{lblMax.textContent=yMax.value;updatePresetActive();});
+  const rLo=$('sl-rank-lo'),rHi=$('sl-rank-hi'),lblRLo=$('lbl-rank-lo'),lblRHi=$('lbl-rank-hi');
+  rLo.addEventListener('input',()=>{let lo=parseInt(rLo.value),hi=parseInt(rHi.value);if(lo>hi-5){hi=Math.min(100,lo+5);rHi.value=hi;lblRHi.textContent=hi;}lblRLo.textContent=lo;});
+  rHi.addEventListener('input',()=>{let lo=parseInt(rLo.value),hi=parseInt(rHi.value);if(hi<lo+5){lo=Math.max(0,hi-5);rLo.value=lo;lblRLo.textContent=lo;}lblRHi.textContent=hi;});
   $('btn-preset-recent').addEventListener('click',e=>{
     e.preventDefault();e.stopPropagation();
     const lo=parseInt(yMin.value),hi=parseInt(yMax.value);
