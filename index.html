@@ -1319,7 +1319,7 @@ function advance(){
 function buildBins(p){
   const r=BIN_EDGES.concat([Infinity]).map(()=>[]);
   p.forEach((a,i)=>{const b=BIN_EDGES.findIndex(e=>a.score<e);r[b===-1?BIN_EDGES.length:b].push(i);});
-  return r.filter(b=>b.length>0);
+  return r;
 }
 
 function buildRankOrder(p){
