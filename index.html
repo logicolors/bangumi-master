@@ -426,6 +426,17 @@ h1 {
 .param-label strong { color: var(--text); font-weight: 700; }
 input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
 .param-desc { font-size: 0.68rem; color: var(--muted); line-height: 1.4; }
+#lbl-votes {
+  background: transparent; border: 1px solid transparent;
+  color: var(--text); font-weight: 700; font-family: inherit;
+  font-size: inherit; font-variant-numeric: tabular-nums;
+  width: 5ch; padding: 0 4px; border-radius: 4px;
+  -moz-appearance: textfield;
+}
+#lbl-votes::-webkit-outer-spin-button,
+#lbl-votes::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+#lbl-votes:hover { border-color: var(--border); }
+#lbl-votes:focus { outline: none; border-color: var(--pink); background: var(--surface); }
 .param-warn { font-size: 0.68rem; color: var(--pink-deep); line-height: 1.4; margin-top: 2px; }
 .rank-range { display: flex; gap: 10px; align-items: center; }
 .rank-range input[type=range] { flex: 1; min-width: 0; }
@@ -698,7 +709,7 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
 
 <header>
   <h1>目标是Bangumi大师</h1>
-  <p class="subtitle">Bangumi Master &nbsp;·&nbsp; 哪部番剧的评分更高？</p>
+  <p class="subtitle">Bangumi Master &nbsp;·&nbsp; 哪部动画的评分更高？</p>
   <button id="btn-mute" title="静音切换">🔊</button>
   <button id="btn-help" title="玩法说明">?</button>
   <div class="stats">
@@ -717,7 +728,7 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
   </div>
 </header>
 
-<div class="prompt" id="prompt">哪部番剧的评分更高？</div>
+<div class="prompt" id="prompt">哪部动画的评分更高？</div>
 
 <div class="arena">
   <div class="card" id="card-a" onclick="onSelect('a')">
@@ -753,9 +764,9 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
   <summary>⚙ 过滤设置 <button id="btn-preset-recent" class="preset-chip" type="button" title="只看近10年">近10年</button> <span class="chevron">▼</span></summary>
   <div class="settings-body">
     <div class="param">
-      <div class="param-label">最低评分人数 <strong id="lbl-votes">500</strong></div>
+      <div class="param-label">最低评分人数 <input type="number" id="lbl-votes" min="0" step="50" value="500"></div>
       <input type="range" id="sl-votes" min="100" max="1000" step="100" value="500">
-      <div class="param-desc">过滤冷门条目，减少噪声评分</div>
+      <div class="param-desc">过滤冷门条目，减少噪声评分。可拖动滑块或直接输入</div>
     </div>
     <div class="param">
       <div class="param-label">开始年份 <strong id="lbl-yr-min">不限</strong></div>
@@ -773,7 +784,7 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
         <input type="range" id="sl-rank-hi" min="0" max="100" step="5" value="100">
       </div>
       <div class="param-desc">按当前候选池内评分排名截取（0% = 最高分，100% = 最低分），其他过滤先生效</div>
-      <div class="param-warn">⚠ 谨慎调整：缩窄范围会让候选番剧的评分分布更密集，匹配难度上升</div>
+      <div class="param-warn">⚠ 谨慎调整：缩窄范围会让候选动画的评分分布更密集，匹配难度上升</div>
     </details>
     <div class="settings-sep"></div>
     <div class="param param-checks">
@@ -829,7 +840,7 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
     <ul class="help-steps">
       <li>
         <span class="step-num">1</span>
-        <span>每轮显示两部番剧，点击你认为 Bangumi 评分更高的那部</span>
+        <span>每轮显示两部动画，点击你认为 Bangumi 评分更高的那部</span>
       </li>
       <li>
         <span class="step-num">2</span>
@@ -840,7 +851,7 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
         <span>在 5 条机会用完前完成 50 题，你就是 Bangumi大师！</span>
       </li>
     </ul>
-    <div class="help-tip">提示：点击底部「过滤设置」可以调整候选番剧池，例如限定年份范围或排除特定类型。</div>
+    <div class="help-tip">提示：点击底部「过滤设置」可以调整候选动画池，例如限定年份范围或排除特定类型。</div>
     <button class="help-close" id="btn-help-close">知道了</button>
   </div>
 </div>
@@ -1179,7 +1190,7 @@ function gameOver(){
   else{mb.classList.remove('show');}
   if(isTimed){
     $('go-stats').innerHTML=
-      (poolExhausted?'<span style="color:var(--pink-deep);font-size:0.78rem">已用完所有符合条件的番剧</span><br>':'')+
+      (poolExhausted?'<span style="color:var(--pink-deep);font-size:0.78rem">已用完所有符合条件的动画</span><br>':'')+
       '答对 <strong>'+stats.correct+'</strong> 题'+(newBestTimedCorrect?'<span class="new-record">新纪录！</span>':'')+'<br>'+
       '最高连击 <strong>'+maxStreak+'</strong> 连'+(newBestTimedStreak?'<span class="new-record">新纪录！</span>':'')+'<br>'+
       ((isGod||isMaster)
@@ -1190,7 +1201,7 @@ function gameOver(){
       :'';
   }else{
     $('go-stats').innerHTML=
-      (poolExhausted?'<span style="color:var(--pink-deep);font-size:0.78rem">已用完所有符合条件的番剧</span><br>':'')+
+      (poolExhausted?'<span style="color:var(--pink-deep);font-size:0.78rem">已用完所有符合条件的动画</span><br>':'')+
       '完成题目 <strong>'+stats.total+'</strong> 题'+(newBestTotal?'<span class="new-record">新纪录！</span>':'')+'<br>'+
       '最高连击 <strong>'+maxStreak+'</strong> 连'+(newBestStreak?'<span class="new-record">新纪录！</span>':'')+'<br>'+
       ((isGod||isMaster)
@@ -1213,7 +1224,7 @@ function renderPlaying(){
   if(firstRound){fillCard('a',slots.a,'hidden');fillCard('b',slots.b,'hidden');}
   else{fillCard('a',slots.a,'score');fillCard('b',slots.b,'question');}
   $('card-a').classList.remove('locked');$('card-b').classList.remove('locked');
-  setPrompt('哪部番剧的评分更高？');updateStats();
+  setPrompt('哪部动画的评分更高？');updateStats();
 }
 
 function onSelect(side){
@@ -1329,7 +1340,8 @@ function buildRankOrder(p){
 }
 
 function applyFilters(){
-  const mv=parseInt($('sl-votes').value),ym=parseInt($('sl-yr-min').value),
+  const mv=Math.max(0,parseInt($('lbl-votes').value)||0),
+        ym=parseInt($('sl-yr-min').value),
         yx=parseInt($('sl-yr-max').value),nlb=ym<=1996,
         ng=$('cb-guochan').checked,nt=$('cb-theatre').checked,
         no=$('cb-ova').checked,np=$('cb-pamen').checked,
@@ -1377,7 +1389,7 @@ function restart(){
   updateStats();
   if(N<2){
     phase='empty';
-    setPrompt(N===0?'当前筛选下没有番剧，请调整过滤设置':'符合条件的番剧太少，请放宽过滤设置','wrong');
+    setPrompt(N===0?'当前筛选下没有动画，请调整过滤设置':'符合条件的动画太少，请放宽过滤设置','wrong');
     clearCard('a');clearCard('b');
     return;
   }
@@ -1386,7 +1398,7 @@ function restart(){
   slots.b=sampleNextCardConstrained(slots.a);
   if(!slots.b){
     phase='empty';
-    setPrompt('符合条件的番剧太少，请放宽过滤设置','wrong');
+    setPrompt('符合条件的动画太少，请放宽过滤设置','wrong');
     clearCard('a');clearCard('b');
     return;
   }
@@ -1398,7 +1410,7 @@ function restart(){
     runCountdown(()=>{
       phase='playing';
       $('card-a').classList.remove('locked');$('card-b').classList.remove('locked');
-      setPrompt('哪部番剧的评分更高？');
+      setPrompt('哪部动画的评分更高？');
       startTimer();
     });
   }else{
@@ -1414,7 +1426,9 @@ function initControls(){
     const recent=hi===yrCap&&lo===yrCap-10;
     $('btn-preset-recent').classList.toggle('active',recent);
   }
-  $('sl-votes').addEventListener('input',()=>$('lbl-votes').textContent=$('sl-votes').value);
+  $('sl-votes').addEventListener('input',()=>{$('lbl-votes').value=$('sl-votes').value;});
+  $('lbl-votes').addEventListener('input',()=>{const v=parseInt($('lbl-votes').value);if(Number.isFinite(v)&&v>=parseInt($('sl-votes').min)&&v<=parseInt($('sl-votes').max))$('sl-votes').value=v;});
+  $('lbl-votes').addEventListener('blur',()=>{const el=$('lbl-votes');const v=parseInt(el.value);if(!Number.isFinite(v)||v<0)el.value=$('sl-votes').value;});
   yMin.addEventListener('input',()=>{const v=parseInt(yMin.value);lblMin.textContent=v<=1996?'不限':v;updatePresetActive();});
   yMax.addEventListener('input',()=>{lblMax.textContent=yMax.value;updatePresetActive();});
   const rLo=$('sl-rank-lo'),rHi=$('sl-rank-hi'),lblRLo=$('lbl-rank-lo'),lblRHi=$('lbl-rank-hi');
