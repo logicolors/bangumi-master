@@ -865,7 +865,7 @@ const SITE_URL='bangumi-master.logicry.cc';
 const BANNED_IDS=new Set([150955,185761,190704,226677,231647,262162,278429,339266,303399,321117,381212,386475,236657,467909,488960,425587,449154,529995,518413,567417]);
 let DATA_DATE='';
 let allAnime=[],anime=[],animeByRank=[],rankPosById={},N=0;
-const BIN_EDGES=[6.0,7.0,7.5],BIN_WEIGHTS=[0.2,0.22,0.28,0.3];let bins=[];
+const JUMP_K=3,JUMP_LO=5.5,JUMP_HI=7.5;let jumpCum=[],jumpTotal=0;
 const MAX_LIVES=5,MASTER_GOAL=50,GOD_GOAL=100,MASTER_GOAL_TIMED=30,GOD_GOAL_TIMED=40,TIME_LIMIT_MS=90000;
 let slots={a:null,b:null},stats={correct:0,total:0,streak:0},maxStreak=0,lives=MAX_LIVES,phase='loading',firstRound=true,seenIds=new Set();
 let bestTotal=0,bestStreak=0,bestTimedCorrect=0,bestTimedStreak=0,goState=null,gameLog=null,mistakeCounts={},poolExhausted=false;
@@ -963,14 +963,14 @@ function sampleNearRank(a,excl,so){
 
 function sampleNear(a,excl,mode){
   if(mode==='jump'){
-    let bi=0,r=Math.random();
-    for(;bi<BIN_WEIGHTS.length;bi++){r-=BIN_WEIGHTS[bi];if(r<=0)break;}
-    if(bi>=BIN_WEIGHTS.length)bi=BIN_WEIGHTS.length-1;
-    if(bins[bi].length===0)bi=bins.findIndex(b=>b.length>0);
-    const bin=bins[bi];
-    let i=bin[Math.floor(Math.random()*bin.length)];
-    if(anime[i].id===excl)i=bin[(bin.indexOf(i)+1)%bin.length];
-    return anime[i];
+    for(let tries=0;tries<5;tries++){
+      const r=Math.random()*jumpTotal;
+      let lo=0,hi=jumpCum.length-1;
+      while(lo<hi){const m=(lo+hi)>>1;if(jumpCum[m]<r)lo=m+1;else hi=m;}
+      if(anime[lo].id!==excl)return anime[lo];
+    }
+    for(let i=0;i<anime.length;i++)if(anime[i].id!==excl)return anime[i];
+    return anime[0];
   }
   const s=a.score;let sig;
   if(s<=GAUSS_MU){sig=LOCAL_SIGMA;}
@@ -1134,7 +1134,7 @@ function pickTip(log){
   if(!log||!log.mistakes.length)return null;
   const candidates=[];
   const dk=log.mistakes.find(m=>m.doubleKill);
-  if(dk)candidates.push('《'+dk.blamedName+'》'+pickFrom(['双杀！','又是你？','两连击','梅开二度']));
+  if(dk)candidates.push('《'+dk.otherName+'》'+pickFrom(['双杀！','又是你？','两连击','梅开二度']));
   const cross=log.mistakes.find(m=>(mistakeCounts[m.blamedId]||0)>=2);
   if(cross)candidates.push(pickFrom(['又是','还是','怎么又是'])+'《'+cross.blamedName+'》…');
   const tagCount={};
@@ -1327,10 +1327,17 @@ function advance(){
   },Math.round(400*f));
 }
 
-function buildBins(p){
-  const r=BIN_EDGES.concat([Infinity]).map(()=>[]);
-  p.forEach((a,i)=>{const b=BIN_EDGES.findIndex(e=>a.score<e);r[b===-1?BIN_EDGES.length:b].push(i);});
-  return r;
+function buildJumpWeights(p){
+  jumpCum=[];let acc=0;
+  for(const a of p){
+    const s=a.score;
+    let w;
+    if(s<=JUMP_LO)w=1;
+    else if(s>=JUMP_HI)w=JUMP_K;
+    else w=1+(JUMP_K-1)*(s-JUMP_LO)/(JUMP_HI-JUMP_LO);
+    acc+=w;jumpCum.push(acc);
+  }
+  jumpTotal=acc;
 }
 
 function buildRankOrder(p){
@@ -1381,7 +1388,7 @@ function restart(){
   boostFlag=false;boostMistakes=0;
   const f=applyFilters();
   anime=f.slice().sort((a,b)=>a.score-b.score);N=anime.length;
-  bins=buildBins(anime);buildRankOrder(f);
+  buildJumpWeights(anime);buildRankOrder(f);
   $('pool-size').textContent=N+' 部';
   stats={correct:0,total:0,streak:0};firstRound=true;seenIds=new Set();
   gameLog=newGameLog();
