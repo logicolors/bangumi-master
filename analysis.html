@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bangumi 数据分析</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #f2f2f7;
+  --surface:   #ffffff;
+  --surface2:  #f2f2f7;
+  --border:    #d8d8e8;
+  --text:      #1c1c2e;
+  --muted:     #8e8ea0;
+  --grid:      #eceef3;
+  --green:     #1fa85a;
+  --red:       #e0344a;
+  --pink:      #f09199;
+  --pink-deep: #e07282;
+  --shadow-sm: 0 1px 6px rgba(0,0,0,0.06);
+  --shadow-md: 0 2px 12px rgba(0,0,0,0.07);
+  --shadow-xs: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+[data-theme="dark"] {
+  --bg:        #15151c;
+  --surface:   #1f1f29;
+  --surface2:  #272733;
+  --border:    #353545;
+  --text:      #e6e6f0;
+  --muted:     #8a8aa3;
+  --grid:      #2c2c38;
+  --shadow-sm: 0 1px 6px rgba(0,0,0,0.4);
+  --shadow-md: 0 2px 14px rgba(0,0,0,0.5);
+  --shadow-xs: 0 1px 4px rgba(0,0,0,0.3);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 12px 48px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.accent-bar {
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--pink), var(--pink-deep), var(--pink));
+  background-size: 200% 100%;
+  animation: shimmer 4s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+header {
+  width: 100%;
+  max-width: 1100px;
+  padding: 22px 0 6px;
+  text-align: center;
+  position: relative;
+}
+
+h1 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  background: linear-gradient(135deg, var(--pink) 0%, var(--pink-deep) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.subtitle {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-top: 5px;
+  letter-spacing: 0.04em;
+}
+
+.back-link {
+  position: absolute;
+  left: 0;
+  top: 28px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 4px 12px;
+  background: var(--surface);
+  transition: color 0.15s, border-color 0.15s;
+}
+.back-link:hover { color: var(--pink); border-color: var(--pink); }
+
+#btn-theme {
+  position: absolute;
+  right: 0;
+  top: 28px;
+  font-size: 0.95rem;
+  line-height: 1;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 5px 10px;
+  background: var(--surface);
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.15s, border-color 0.15s;
+}
+#btn-theme:hover { color: var(--pink); border-color: var(--pink); }
+
+/* ── Settings (filter panel) ── */
+.settings {
+  width: 100%;
+  max-width: 1100px;
+  margin-top: 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.settings summary {
+  padding: 9px 14px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.settings summary::-webkit-details-marker { display: none; }
+.settings[open] summary { border-bottom: 1px solid var(--border); }
+.settings summary .chevron {
+  margin-left: auto;
+  transition: transform 0.2s;
+  font-size: 0.7rem;
+  opacity: 0.5;
+}
+.settings[open] summary .chevron { transform: rotate(180deg); }
+
+.settings-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 14px 16px;
+}
+.settings-sep { width: 100%; height: 1px; background: var(--border); margin: 2px 0; }
+
+.param {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+  flex: 1;
+}
+.param-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+}
+.param-label strong { color: var(--text); font-weight: 700; }
+input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
+.param-desc { font-size: 0.68rem; color: var(--muted); line-height: 1.4; }
+.dual-range { display: flex; gap: 10px; align-items: center; }
+.dual-range input[type=range] { flex: 1; min-width: 0; }
+
+#lbl-votes, #lbl-score-min, #lbl-score-max, #lbl-rank-min, #lbl-rank-max {
+  background: transparent; border: 1px solid transparent;
+  color: var(--text); font-weight: 700; font-family: inherit;
+  font-size: inherit; font-variant-numeric: tabular-nums;
+  width: 5ch; padding: 0 4px; border-radius: 4px;
+  text-align: right;
+  -moz-appearance: textfield;
+}
+input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+.param-checks { gap: 8px; }
+.param-checks label {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 0.8rem; cursor: pointer;
+}
+.param-checks input[type=checkbox] {
+  width: 15px; height: 15px; accent-color: var(--pink); cursor: pointer;
+}
+
+#tag-include {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  font-family: inherit;
+  font-size: 0.82rem;
+  color: var(--text);
+  width: 100%;
+}
+#tag-include:focus { outline: none; border-color: var(--pink); }
+
+/* ── Mode chips ── */
+.mode-row {
+  width: 100%;
+  max-width: 1100px;
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.mode-chip {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 99px;
+  padding: 7px 16px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.mode-chip:hover { color: var(--pink-deep); border-color: var(--pink); }
+.mode-chip.active {
+  background: var(--pink-deep);
+  color: #fff;
+  border-color: var(--pink-deep);
+}
+
+.hist-sub {
+  display: none;
+  margin-left: auto;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.hist-sub.show { display: flex; }
+.hist-sub select, .hist-sub input[type=range] {
+  font-family: inherit;
+}
+.hist-sub select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 8px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+.hist-sub .bin-slider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 220px;
+}
+.hist-sub .bin-slider input[type=range] { width: 130px; }
+.hist-sub .bin-val { color: var(--text); font-weight: 700; min-width: 5ch; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ── Chart card ── */
+.chart-card {
+  width: 100%;
+  max-width: 1100px;
+  margin-top: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px 18px 12px;
+  box-shadow: var(--shadow-md);
+  position: relative;
+}
+.chart-toolbar {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+}
+.btn-export {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: 0.74rem;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.15s, border-color 0.15s;
+}
+.btn-export:hover { color: var(--pink); border-color: var(--pink); }
+.btn-export:disabled { opacity: 0.4; cursor: not-allowed; }
+
+#chart {
+  width: 100%;
+  height: 480px;
+}
+
+.empty-state {
+  display: none;
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.92rem;
+  pointer-events: none;
+}
+.empty-state.show { display: flex; }
+
+.stats-line {
+  width: 100%;
+  max-width: 1100px;
+  margin-top: 10px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  justify-content: center;
+  box-shadow: var(--shadow-xs);
+}
+.stats-line strong { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.selection-panel { margin-top: 10px; }
+.selection-panel summary { color: var(--text); font-weight: 600; }
+.selection-panel summary .sel-hint {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 0.74rem;
+  margin-left: 6px;
+}
+.sel-body { padding: 0; }
+.sel-row {
+  display: flex;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  color: var(--text);
+  transition: background 0.12s;
+}
+.sel-row:last-of-type { border-bottom: none; }
+.sel-row:hover { background: var(--surface2); }
+.sel-thumb {
+  width: 44px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--surface2);
+  flex-shrink: 0;
+}
+.sel-thumb-empty { display: block; }
+.sel-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sel-name { font-weight: 600; font-size: 0.9rem; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sel-name-sub { color: var(--muted); font-size: 0.74rem; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sel-stats { display: flex; flex-wrap: wrap; gap: 12px; color: var(--muted); font-size: 0.74rem; margin-top: 3px; }
+.sel-stats span { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sel-pager {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+.pager-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.pager-btn:hover:not(:disabled) { border-color: var(--pink); color: var(--pink-deep); }
+.pager-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.pager-info { font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.hint {
+  margin-top: 18px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-align: center;
+  opacity: 0.7;
+}
+
+#loading {
+  position: fixed; inset: 0; background: var(--bg);
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 14px; font-size: 0.9rem; color: var(--muted); z-index: 99;
+}
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--border); border-top-color: var(--pink);
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 640px) {
+  h1 { font-size: 1.45rem; }
+  .back-link, #btn-theme { position: static; display: inline-block; margin: 0 4px 8px; }
+  #chart { height: 380px; }
+  .hist-sub { margin-left: 0; width: 100%; flex-wrap: wrap; }
+}
+</style>
+<script>
+  // Apply persisted theme before paint to avoid a light-mode flash.
+  try {
+    const t = localStorage.getItem('bgm_analysis_theme');
+    if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  } catch(e) {}
+</script>
+</head>
+<body>
+
+<div class="accent-bar"></div>
+<div id="loading"><div class="spinner"></div><span>加载中…</span></div>
+
+<header>
+  <a class="back-link" href="/">← 回到游戏</a>
+  <button id="btn-theme" type="button" title="切换主题" aria-label="切换主题">🌙</button>
+  <h1>Bangumi 数据分析</h1>
+  <p class="subtitle" id="subtitle">数据快照加载中…</p>
+</header>
+
+<details class="settings" open>
+  <summary>⚙ 过滤设置 <span class="chevron">▼</span></summary>
+  <div class="settings-body">
+    <div class="param">
+      <div class="param-label">最低评分人数 <input type="number" id="lbl-votes" min="0" step="50" value="100"></div>
+      <input type="range" id="sl-votes" min="0" max="1000" step="50" value="100">
+      <div class="param-desc">过滤冷门条目，减少噪声评分</div>
+    </div>
+    <div class="param">
+      <div class="param-label">开始年份 <strong id="lbl-yr-min">不限</strong></div>
+      <input type="range" id="sl-yr-min" min="1996" max="2026" step="1" value="1996">
+      <div class="param-desc">滑到最左 = 不限下界</div>
+    </div>
+    <div class="param">
+      <div class="param-label">结束年份 <strong id="lbl-yr-max">2026</strong></div>
+      <input type="range" id="sl-yr-max" min="1996" max="2026" step="1" value="2026">
+    </div>
+    <div class="settings-sep"></div>
+    <div class="param">
+      <div class="param-label">评分范围 <strong><span id="lbl-score-lo">0.0</span> – <span id="lbl-score-hi">10.0</span></strong></div>
+      <div class="dual-range">
+        <input type="range" id="sl-score-min" min="0" max="10" step="0.1" value="0">
+        <input type="range" id="sl-score-max" min="0" max="10" step="0.1" value="10">
+      </div>
+      <div class="param-desc">仅显示评分在此区间的动画</div>
+    </div>
+    <div class="param">
+      <div class="param-label">排名范围 <strong><span id="lbl-rank-lo">1</span> – <span id="lbl-rank-hi">∞</span></strong></div>
+      <div class="dual-range">
+        <input type="range" id="sl-rank-min" min="1" max="5000" step="50" value="1">
+        <input type="range" id="sl-rank-max" min="1" max="5000" step="50" value="5000">
+      </div>
+      <label style="font-size:0.7rem;margin-top:4px;color:var(--muted);display:flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="cb-rank-null" checked style="width:13px;height:13px;accent-color:var(--pink)">
+        包含未排名的动画
+      </label>
+    </div>
+    <div class="settings-sep"></div>
+    <div class="param param-checks">
+      <div class="param-label" style="margin-bottom:6px">排除标签</div>
+      <label><input type="checkbox" id="cb-guochan" checked> 排除国产</label>
+      <label><input type="checkbox" id="cb-theatre" checked> 排除剧场版</label>
+      <label><input type="checkbox" id="cb-ova" checked> 排除OVA</label>
+      <label><input type="checkbox" id="cb-pamen" checked> 排除泡面番</label>
+      <label><input type="checkbox" id="cb-oumei" checked> 排除欧美</label>
+      <label><input type="checkbox" id="cb-short" checked> 排除短片</label>
+      <label><input type="checkbox" id="cb-recap" checked> 排除总集篇</label>
+    </div>
+    <div class="param">
+      <div class="param-label" style="margin-bottom:6px">包含标签</div>
+      <input type="text" id="tag-include" placeholder="例如：奇幻, 恋爱   （逗号分隔，全部命中）">
+      <div class="param-desc">每个 tag 在动画标签中匹配，全部命中才保留</div>
+    </div>
+  </div>
+</details>
+
+<div class="mode-row">
+  <button class="mode-chip active" data-mode="hist" type="button">📊 直方图</button>
+  <button class="mode-chip" data-mode="scatter" type="button">✦ 评分 × 投票数</button>
+  <button class="mode-chip" data-mode="tags" type="button">🏷 Top 标签</button>
+  <div class="hist-sub show" id="hist-sub">
+    <label>X 字段
+      <select id="hist-field">
+        <option value="score">评分</option>
+        <option value="vote_count">投票数</option>
+        <option value="year">年份</option>
+        <option value="rank">排名</option>
+      </select>
+    </label>
+    <div class="bin-slider">
+      <span>分箱宽度</span>
+      <input type="range" id="hist-bin" min="0" max="3" step="1" value="0">
+      <span class="bin-val" id="hist-bin-val">0.1</span>
+    </div>
+  </div>
+</div>
+
+<div class="chart-card">
+  <div class="chart-toolbar">
+    <button class="btn-export" id="btn-export" type="button" title="保存当前图表为 PNG">💾 导出 PNG</button>
+  </div>
+  <div id="chart"></div>
+  <div class="empty-state" id="empty-state">无匹配数据，请放宽过滤条件</div>
+</div>
+
+<div class="stats-line" id="stats-line">
+  <span>筛选后数量 <strong id="st-count">—</strong></span>
+  <span>平均 <strong id="st-mean">—</strong></span>
+  <span>中位 <strong id="st-median">—</strong></span>
+  <span>最小 <strong id="st-min">—</strong></span>
+  <span>最大 <strong id="st-max">—</strong></span>
+</div>
+
+<details class="settings selection-panel" id="selection-panel" style="display:none" open>
+  <summary>
+    <span id="sel-title">选中</span>
+    <span class="sel-hint" id="sel-count"></span>
+    <span class="chevron">▼</span>
+  </summary>
+  <div class="sel-body">
+    <div id="sel-list"></div>
+    <div class="sel-pager" id="sel-pager" style="display:none">
+      <button class="pager-btn" id="pg-prev" type="button">‹ 上一页</button>
+      <span class="pager-info" id="pg-info">1 / 1</span>
+      <button class="pager-btn" id="pg-next" type="button">下一页 ›</button>
+    </div>
+  </div>
+</details>
+
+<div class="hint">数据来源：<a href="https://bangumi.tv/" target="_blank" rel="noopener" style="color:#0084b4;text-decoration:none;">Bangumi</a></div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script>
+function $(id){return document.getElementById(id);}
+
+let allAnime=[];
+let DATA_DATE='';
+let chart=null;
+let currentMode='hist';
+
+// Drill-down state: populated by render*; consumed by chart 'click' handler.
+let histCtx=null;     // { field, startBin, binWidth, nBins, animesByBin: anime[][] }
+let scatterCtx=null;  // { animes: anime[] parallel to series data }
+let lastFiltered=[];  // current filtered set (for tags drill-down rescan)
+let selection=null;   // { title, items: anime[], page }
+const PAGE_SIZE=10;
+
+const HIST_BIN_OPTIONS={
+  score:[0.1, 0.2, 0.5, 1.0],
+  vote_count:[100, 200, 500, 1000],
+  year:[1, 2, 5, 10],
+  rank:[50, 100, 250, 500]
+};
+const HIST_FIELD_LABEL={score:'评分', vote_count:'投票数', year:'年份', rank:'排名'};
+const HIST_DEFAULT_IDX={score:0, vote_count:1, year:0, rank:1};
+
+const EXCLUDE_CHECKBOXES=[
+  ['cb-guochan','国产'],
+  ['cb-theatre','剧场版'],
+  ['cb-ova','OVA'],
+  ['cb-pamen','泡面番'],
+  ['cb-oumei','欧美'],
+  ['cb-short','短片'],
+  ['cb-recap','总集篇']
+];
+
+// Top-tags view only: tags that are essentially meta-labels (every anime has
+// them) and don't tell us anything interesting, so we hide them from the chart.
+const TOPTAGS_HIDE=new Set(['TV','TVA','日本','日本动画','日漫','动画','季番','补番','tv','tva']);
+
+// Top-tags view only: collapse variant tags onto a canonical name. Keys are
+// matched case-sensitively against the raw tag string.
+const TOPTAGS_ALIASES={
+  '漫改':'漫改', '漫画改':'漫改', '漫画改编':'漫改',
+  '轻改':'小说改', '轻小说改':'小说改', '轻小说改编':'小说改',
+  '小说改':'小说改', '小说改编':'小说改'
+};
+function canonicalizeTag(t){ return TOPTAGS_ALIASES[t] || t; }
+
+function getFiltered(){
+  const mv=Math.max(0, parseInt($('lbl-votes').value)||0);
+  const ym=parseInt($('sl-yr-min').value), yx=parseInt($('sl-yr-max').value);
+  const nlb=ym<=1996;
+  const sMin=parseFloat($('sl-score-min').value), sMax=parseFloat($('sl-score-max').value);
+  const rMin=parseInt($('sl-rank-min').value), rMax=parseInt($('sl-rank-max').value);
+  const rNullOk=$('cb-rank-null').checked;
+  const rMaxIsTop=rMax>=parseInt($('sl-rank-max').max);
+  const excluded=EXCLUDE_CHECKBOXES.filter(([id])=>$(id).checked).map(([,t])=>t);
+  const includeRaw=$('tag-include').value.trim();
+  const includeTerms=includeRaw?includeRaw.split(',').map(s=>s.trim()).filter(Boolean):[];
+
+  return allAnime.filter(a=>{
+    if(a.vote_count<mv) return false;
+    if(a.air_date){
+      const am=a.air_date.substring(0,7);
+      if(!nlb && am<ym+'-01') return false;
+      if(am>yx+'-12') return false;
+    }
+    if(DATA_DATE && a.air_date && a.air_date>DATA_DATE) return false;
+    if(a.score<sMin || a.score>sMax) return false;
+    if(a.rank==null){
+      if(!rNullOk) return false;
+    }else{
+      if(a.rank<rMin) return false;
+      if(!rMaxIsTop && a.rank>rMax) return false;
+    }
+    const tags=Array.isArray(a.tags)?a.tags:[];
+    for(const t of excluded) if(tags.includes(t)) return false;
+    if(includeTerms.length){
+      for(const term of includeTerms){
+        if(!tags.includes(term)) return false;
+      }
+    }
+    return true;
+  });
+}
+
+function quantile(sorted, q){
+  if(!sorted.length) return null;
+  const pos=(sorted.length-1)*q;
+  const lo=Math.floor(pos), hi=Math.ceil(pos);
+  if(lo===hi) return sorted[lo];
+  return sorted[lo]+(sorted[hi]-sorted[lo])*(pos-lo);
+}
+
+function fmtNum(v, decimals){
+  if(v==null||!isFinite(v)) return '—';
+  return Number(v).toFixed(decimals==null?2:decimals);
+}
+
+function updateStatsLine(values, decimals){
+  if(!values.length){
+    $('st-count').textContent=0;
+    ['st-mean','st-median','st-min','st-max'].forEach(id=>$(id).textContent='—');
+    return;
+  }
+  const sorted=values.slice().sort((a,b)=>a-b);
+  const sum=values.reduce((s,v)=>s+v,0);
+  $('st-count').textContent=values.length;
+  $('st-mean').textContent=fmtNum(sum/values.length, decimals);
+  $('st-median').textContent=fmtNum(quantile(sorted,0.5), decimals);
+  $('st-min').textContent=fmtNum(sorted[0], decimals);
+  $('st-max').textContent=fmtNum(sorted[sorted.length-1], decimals);
+}
+
+function showEmpty(show){ $('empty-state').classList.toggle('show', show); }
+
+function cssVar(name){
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+function themeColors(){
+  return {
+    pink:       cssVar('--pink')      || '#f09199',
+    pinkDeep:   cssVar('--pink-deep') || '#e07282',
+    text:       cssVar('--text')      || '#1c1c2e',
+    muted:      cssVar('--muted')     || '#8e8ea0',
+    border:     cssVar('--border')    || '#d8d8e8',
+    surface:    cssVar('--surface')   || '#ffffff',
+    grid:       cssVar('--grid')      || '#eceef3'
+  };
+}
+
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function clearSelection(){
+  selection=null;
+  $('selection-panel').style.display='none';
+}
+
+function setSelection(title, items){
+  if(!items || !items.length){ clearSelection(); return; }
+  const sorted=items.slice().sort((a,b)=>(b.score||0)-(a.score||0));
+  selection={ title, items: sorted, page: 0 };
+  renderSelection();
+}
+
+function renderSelection(){
+  const panel=$('selection-panel');
+  if(!selection){ panel.style.display='none'; return; }
+  panel.style.display='';
+  panel.open=true;
+  const { title, items, page } = selection;
+  const nPages=Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const start=page*PAGE_SIZE;
+  const pageItems=items.slice(start, start+PAGE_SIZE);
+
+  $('sel-title').textContent=title;
+  $('sel-count').textContent=`· 共 ${items.length} 部 · 按评分降序`;
+
+  const list=$('sel-list');
+  list.innerHTML=pageItems.map(a=>{
+    const img=a.image_url
+      ? `<img class="sel-thumb" src="${escapeHtml(a.image_url)}" loading="lazy" alt="">`
+      : `<div class="sel-thumb sel-thumb-empty"></div>`;
+    const year=a.air_date?a.air_date.substring(0,4):'';
+    const score=a.score!=null?a.score.toFixed(1):'—';
+    const votes=a.vote_count!=null?a.vote_count.toLocaleString():'—';
+    const rank=a.rank!=null?`#${a.rank}`:'未排名';
+    const nameMain=a.name_cn||a.name||'';
+    const nameSub=(a.name_cn && a.name && a.name_cn!==a.name)?a.name:'';
+    return `<a class="sel-row" href="https://bgm.tv/subject/${encodeURIComponent(a.id)}" target="_blank" rel="noopener">
+      ${img}
+      <div class="sel-meta">
+        <div class="sel-name">${escapeHtml(nameMain)}</div>
+        ${nameSub?`<div class="sel-name-sub">${escapeHtml(nameSub)}</div>`:''}
+        <div class="sel-stats"><span>⭐ ${score}</span><span>👥 ${votes}</span><span>${rank}</span>${year?`<span>${year}</span>`:''}</div>
+      </div>
+    </a>`;
+  }).join('');
+
+  const pager=$('sel-pager');
+  if(nPages<=1){ pager.style.display='none'; return; }
+  pager.style.display='';
+  $('pg-info').textContent=`${page+1} / ${nPages}`;
+  $('pg-prev').disabled=(page===0);
+  $('pg-next').disabled=(page===nPages-1);
+}
+
+function handleChartClick(params){
+  if(currentMode==='hist'){
+    if(!histCtx || params.componentType!=='series') return;
+    const i=params.dataIndex;
+    const animes=histCtx.animesByBin[i];
+    if(!animes || !animes.length) return;
+    const b=histCtx.startBin + i*histCtx.binWidth;
+    const upper=b + histCtx.binWidth;
+    const range=(histCtx.field==='score')
+      ? `${b.toFixed(2)} – ${upper.toFixed(2)}`
+      : `${Math.round(b)} – ${Math.round(upper)}`;
+    setSelection(`${HIST_FIELD_LABEL[histCtx.field]} ${range}`, animes);
+  }
+  else if(currentMode==='scatter'){
+    if(!scatterCtx) return;
+    const a=scatterCtx.animes[params.dataIndex];
+    if(!a) return;
+    setSelection(a.name_cn||a.name||'(无标题)', [a]);
+  }
+  else if(currentMode==='tags'){
+    const tag=params.name;
+    if(!tag || !lastFiltered.length) return;
+    const matched=lastFiltered.filter(a=>{
+      const tags=Array.isArray(a.tags)?a.tags:[];
+      return tags.some(t=>canonicalizeTag(t)===tag);
+    });
+    setSelection(`标签「${tag}」`, matched);
+  }
+}
+
+function setupChartHandlers(){
+  chart.off('click');
+  chart.on('click', handleChartClick);
+}
+
+function baseChartOpts(){
+  const c=themeColors();
+  return {
+    color:[c.pink],
+    grid:{ left:50, right:24, top:32, bottom:48, containLabel:true },
+    tooltip:{ trigger:'axis', backgroundColor:c.surface, borderColor:c.border, textStyle:{ color:c.text, fontSize:12 } },
+    textStyle:{ fontFamily:'-apple-system, "Segoe UI", system-ui, sans-serif', color:c.text }
+  };
+}
+
+function renderHistogram(data){
+  const field=$('hist-field').value;
+  const binOpts=HIST_BIN_OPTIONS[field];
+  const binWidth=binOpts[parseInt($('hist-bin').value)];
+  $('hist-bin-val').textContent=binWidth;
+
+  const values=[], animeForValue=[];
+  for(const a of data){
+    let v;
+    if(field==='year'){ v=a.air_date?parseInt(a.air_date.substring(0,4)):null; }
+    else if(field==='rank'){ v=a.rank; }
+    else { v=a[field]; }
+    if(v!=null && isFinite(v)){ values.push(v); animeForValue.push(a); }
+  }
+
+  const decimals=(field==='score')?2:0;
+  updateStatsLine(values, decimals);
+
+  if(!values.length){ histCtx=null; showEmpty(true); chart.clear(); return; }
+  showEmpty(false);
+
+  const lo=Math.min(...values), hi=Math.max(...values);
+  // EPS guards against IEEE-754 error: e.g. 5.5/0.1 = 54.999... in float, so
+  // Math.floor would give 54 (→ startBin 5.4) and shift every score by one bin.
+  const EPS=1e-9;
+  const startBin=Math.floor(lo/binWidth + EPS)*binWidth;
+  const endBin=Math.floor(hi/binWidth + EPS)*binWidth;
+  const nBins=Math.round((endBin-startBin)/binWidth)+1;
+  const counts=new Array(nBins).fill(0);
+  const animesByBin=Array.from({length:nBins}, ()=>[]);
+  for(let i=0;i<values.length;i++){
+    const raw=Math.floor((values[i]-startBin)/binWidth + EPS);
+    const idx=Math.min(nBins-1, Math.max(0, raw));
+    counts[idx]++;
+    animesByBin[idx].push(animeForValue[i]);
+  }
+  histCtx={ field, startBin, binWidth, nBins, animesByBin };
+  const labels=[];
+  for(let i=0;i<nBins;i++){
+    const b=startBin+i*binWidth;
+    if(field==='score') labels.push(b.toFixed(2));
+    else if(field==='year' || field==='rank') labels.push(String(Math.round(b)));
+    else labels.push(String(Math.round(b)));
+  }
+
+  const c=themeColors();
+  chart.setOption({
+    ...baseChartOpts(),
+    tooltip:{ trigger:'axis', axisPointer:{ type:'shadow' }, backgroundColor:c.surface, borderColor:c.border, textStyle:{ color:c.text }, formatter:(p)=>{
+      const i=p[0].dataIndex;
+      const b=startBin+i*binWidth;
+      const upper=b+binWidth;
+      const range=(field==='score')?`${b.toFixed(2)} – ${upper.toFixed(2)}`:`${Math.round(b)} – ${Math.round(upper)}`;
+      return `<strong>${HIST_FIELD_LABEL[field]}</strong> ${range}<br>动画数量 <strong>${p[0].value}</strong>`;
+    }},
+    xAxis:{ type:'category', data:labels, name:HIST_FIELD_LABEL[field], nameLocation:'middle', nameGap:30, nameTextStyle:{ color:c.muted }, axisLabel:{ color:c.muted, fontSize:10, interval:'auto' }, axisLine:{ lineStyle:{ color:c.border } } },
+    yAxis:{ type:'value', name:'动画数量', nameTextStyle:{ color:c.muted, fontSize:11 }, axisLabel:{ color:c.muted, fontSize:11 }, splitLine:{ lineStyle:{ color:c.grid } } },
+    series:[{ type:'bar', data:counts, barWidth:'92%', itemStyle:{ color:c.pink, borderRadius:[3,3,0,0] }, emphasis:{ itemStyle:{ color:c.pinkDeep } } }]
+  }, true);
+}
+
+function renderScatter(data){
+  const pts=[];
+  const scores=[];
+  const animesForPts=[];
+  for(const a of data){
+    if(a.score==null || a.vote_count==null) continue;
+    if(a.vote_count<=0) continue;
+    pts.push([a.vote_count, a.score, a.name_cn||a.name, a.air_date?a.air_date.substring(0,4):'']);
+    scores.push(a.score);
+    animesForPts.push(a);
+  }
+  updateStatsLine(scores, 2);
+  if(!pts.length){ scatterCtx=null; showEmpty(true); chart.clear(); return; }
+  showEmpty(false);
+  scatterCtx={ animes: animesForPts };
+
+  const c=themeColors();
+  chart.setOption({
+    ...baseChartOpts(),
+    tooltip:{ trigger:'item', backgroundColor:c.surface, borderColor:c.border, textStyle:{ color:c.text }, formatter:(p)=>{
+      const [v,s,n,y]=p.data;
+      return `<strong>${n}</strong>${y?' ('+y+')':''}<br>评分 <strong>${s.toFixed(1)}</strong><br>投票 <strong>${v}</strong>`;
+    }},
+    xAxis:{ type:'log', name:'投票数 (log)', nameLocation:'middle', nameGap:30, nameTextStyle:{ color:c.muted }, axisLabel:{ color:c.muted, fontSize:11 }, axisLine:{ lineStyle:{ color:c.border } }, splitLine:{ lineStyle:{ color:c.grid } } },
+    yAxis:{ type:'value', name:'评分', min:0, max:10, nameTextStyle:{ color:c.muted }, axisLabel:{ color:c.muted, fontSize:11 }, splitLine:{ lineStyle:{ color:c.grid } } },
+    series:[{ type:'scatter', data:pts, symbolSize:6, itemStyle:{ color:c.pink+'8c', borderColor:c.pinkDeep+'cc', borderWidth:0.5 } }]
+  }, true);
+}
+
+function renderTopTags(data){
+  const excluded=new Set(EXCLUDE_CHECKBOXES.filter(([id])=>$(id).checked).map(([,t])=>t));
+  const counts={};
+  const scores=[];
+  for(const a of data){
+    scores.push(a.score);
+    const tags=Array.isArray(a.tags)?a.tags:[];
+    // Canonicalize then dedupe within this anime so aliased variants don't
+    // double-count (e.g. an entry tagged both "漫改" and "漫画改" → counted once).
+    const seen=new Set();
+    for(const raw of tags){
+      if(excluded.has(raw)) continue;
+      if(TOPTAGS_HIDE.has(raw)) continue;
+      if(/^(19|20)\d{2}(年(\d{1,2}月?)?)?$/.test(raw)) continue; // hide year tags: 2020, 2014年, 2014年10月
+      const t=canonicalizeTag(raw);
+      if(seen.has(t)) continue;
+      seen.add(t);
+      counts[t]=(counts[t]||0)+1;
+    }
+  }
+  updateStatsLine(scores, 2);
+  const entries=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,25);
+  if(!entries.length){ showEmpty(true); chart.clear(); return; }
+  showEmpty(false);
+  const names=entries.map(e=>e[0]).reverse();
+  const vals=entries.map(e=>e[1]).reverse();
+  const c=themeColors();
+  chart.setOption({
+    ...baseChartOpts(),
+    grid:{ left:80, right:32, top:24, bottom:36, containLabel:true },
+    tooltip:{ trigger:'axis', axisPointer:{ type:'shadow' }, backgroundColor:c.surface, borderColor:c.border, textStyle:{ color:c.text }, formatter:(p)=>`<strong>${p[0].name}</strong><br>动画数量 <strong>${p[0].value}</strong>` },
+    xAxis:{ type:'value', name:'动画数量', nameLocation:'middle', nameGap:28, nameTextStyle:{ color:c.muted }, axisLabel:{ color:c.muted, fontSize:11 }, splitLine:{ lineStyle:{ color:c.grid } } },
+    yAxis:{ type:'category', data:names, axisLabel:{ color:c.text, fontSize:11 }, axisLine:{ lineStyle:{ color:c.border } } },
+    series:[{ type:'bar', data:vals, itemStyle:{ color:c.pink, borderRadius:[0,3,3,0] }, emphasis:{ itemStyle:{ color:c.pinkDeep } }, label:{ show:true, position:'right', color:c.muted, fontSize:10 } }]
+  }, true);
+}
+
+function render(){
+  const data=getFiltered();
+  lastFiltered=data;
+  clearSelection();
+  if(currentMode==='hist') renderHistogram(data);
+  else if(currentMode==='scatter') renderScatter(data);
+  else if(currentMode==='tags') renderTopTags(data);
+}
+
+let renderTimer=null;
+function scheduleRender(){
+  clearTimeout(renderTimer);
+  renderTimer=setTimeout(render, 150);
+}
+
+function setMode(m){
+  currentMode=m;
+  document.querySelectorAll('.mode-chip').forEach(c=>c.classList.toggle('active', c.dataset.mode===m));
+  $('hist-sub').classList.toggle('show', m==='hist');
+  render();
+}
+
+function syncDualRange(loId, hiId){
+  const lo=$(loId), hi=$(hiId);
+  if(parseFloat(lo.value)>parseFloat(hi.value)){
+    if(document.activeElement===lo) hi.value=lo.value;
+    else lo.value=hi.value;
+  }
+}
+
+function updateLabels(){
+  $('lbl-yr-min').textContent=parseInt($('sl-yr-min').value)<=1996?'不限':$('sl-yr-min').value;
+  $('lbl-yr-max').textContent=$('sl-yr-max').value;
+  $('lbl-score-lo').textContent=parseFloat($('sl-score-min').value).toFixed(1);
+  $('lbl-score-hi').textContent=parseFloat($('sl-score-max').value).toFixed(1);
+  $('lbl-rank-lo').textContent=$('sl-rank-min').value;
+  const rMax=$('sl-rank-max');
+  $('lbl-rank-hi').textContent=parseInt(rMax.value)>=parseInt(rMax.max)?'∞':rMax.value;
+}
+
+function initControls(){
+  const sv=$('sl-votes'), lv=$('lbl-votes');
+  sv.addEventListener('input', ()=>{ lv.value=sv.value; scheduleRender(); });
+  lv.addEventListener('input', ()=>{
+    let v=parseInt(lv.value)||0; if(v<0)v=0;
+    sv.value=Math.min(Math.max(v,parseInt(sv.min)),parseInt(sv.max));
+    scheduleRender();
+  });
+
+  $('sl-yr-min').addEventListener('input', ()=>{ syncDualRange('sl-yr-min','sl-yr-max'); updateLabels(); scheduleRender(); });
+  $('sl-yr-max').addEventListener('input', ()=>{ syncDualRange('sl-yr-min','sl-yr-max'); updateLabels(); scheduleRender(); });
+  $('sl-score-min').addEventListener('input', ()=>{ syncDualRange('sl-score-min','sl-score-max'); updateLabels(); scheduleRender(); });
+  $('sl-score-max').addEventListener('input', ()=>{ syncDualRange('sl-score-min','sl-score-max'); updateLabels(); scheduleRender(); });
+  $('sl-rank-min').addEventListener('input', ()=>{ syncDualRange('sl-rank-min','sl-rank-max'); updateLabels(); scheduleRender(); });
+  $('sl-rank-max').addEventListener('input', ()=>{ syncDualRange('sl-rank-min','sl-rank-max'); updateLabels(); scheduleRender(); });
+  $('cb-rank-null').addEventListener('change', scheduleRender);
+
+  EXCLUDE_CHECKBOXES.forEach(([id])=>$(id).addEventListener('change', scheduleRender));
+  $('tag-include').addEventListener('input', scheduleRender);
+
+  document.querySelectorAll('.mode-chip').forEach(c=>{
+    c.addEventListener('click', ()=>setMode(c.dataset.mode));
+  });
+
+  $('hist-field').addEventListener('change', ()=>{
+    const f=$('hist-field').value;
+    $('hist-bin').value=HIST_DEFAULT_IDX[f];
+    $('hist-bin-val').textContent=HIST_BIN_OPTIONS[f][HIST_DEFAULT_IDX[f]];
+    render();
+  });
+  $('hist-bin').addEventListener('input', ()=>{
+    const f=$('hist-field').value;
+    $('hist-bin-val').textContent=HIST_BIN_OPTIONS[f][parseInt($('hist-bin').value)];
+    render();
+  });
+  $('btn-export').addEventListener('click', exportPng);
+
+  $('btn-theme').textContent = document.documentElement.getAttribute('data-theme')==='dark' ? '☀' : '🌙';
+  $('btn-theme').addEventListener('click', toggleTheme);
+
+  $('pg-prev').addEventListener('click', ()=>{
+    if(selection && selection.page>0){ selection.page--; renderSelection(); }
+  });
+  $('pg-next').addEventListener('click', ()=>{
+    if(!selection) return;
+    const nPages=Math.max(1, Math.ceil(selection.items.length/PAGE_SIZE));
+    if(selection.page<nPages-1){ selection.page++; renderSelection(); }
+  });
+
+  updateLabels();
+}
+
+function toggleTheme(){
+  const isDark = document.documentElement.getAttribute('data-theme')==='dark';
+  if(isDark){
+    document.documentElement.removeAttribute('data-theme');
+    try { localStorage.setItem('bgm_analysis_theme','light'); } catch(e) {}
+    $('btn-theme').textContent='🌙';
+  } else {
+    document.documentElement.setAttribute('data-theme','dark');
+    try { localStorage.setItem('bgm_analysis_theme','dark'); } catch(e) {}
+    $('btn-theme').textContent='☀';
+  }
+  // Recreate the chart so all theme-derived colors (axes, grid, fills) refresh.
+  if(chart){ chart.dispose(); chart=echarts.init($('chart')); setupChartHandlers(); render(); }
+}
+
+function exportPng(){
+  if(!chart) return;
+  const url=chart.getDataURL({ type:'png', pixelRatio:2, backgroundColor:themeColors().surface });
+  const today=new Date();
+  const stamp=today.getFullYear()+String(today.getMonth()+1).padStart(2,'0')+String(today.getDate()).padStart(2,'0');
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`bangumi-${currentMode}-${stamp}.png`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+function updateRankSliderRange(){
+  let maxRank=1;
+  for(const a of allAnime){ if(a.rank && a.rank>maxRank) maxRank=a.rank; }
+  const ceil=Math.ceil(maxRank/100)*100;
+  $('sl-rank-min').max=ceil;
+  $('sl-rank-max').max=ceil;
+  $('sl-rank-max').value=ceil;
+  updateLabels();
+}
+
+async function init(){
+  initControls();
+  chart=echarts.init($('chart'));
+  setupChartHandlers();
+  window.addEventListener('resize', ()=>chart && chart.resize());
+
+  try{
+    const [list, meta]=await Promise.all([
+      fetch('data/anime_list.json').then(r=>r.json()),
+      fetch('data/anime_meta.json').then(r=>r.json()).catch(()=>({}))
+    ]);
+    allAnime=list;
+    DATA_DATE=(meta && meta.collected_at)||'';
+    updateRankSliderRange();
+    $('subtitle').textContent=`数据快照 ${DATA_DATE||'?'} · 共 ${allAnime.length} 部`;
+    $('loading').style.display='none';
+    render();
+  }catch(err){
+    $('loading').innerHTML='<span style="color:var(--red)">加载失败：'+err.message+'</span>';
+  }
+}
+
+init();
+</script>
+</body>
+</html>

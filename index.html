@@ -69,7 +69,7 @@ h1 {
   letter-spacing: 0.04em;
 }
 
-#btn-help, #btn-mute {
+#btn-help, #btn-mute, #btn-analysis {
   position: absolute;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -88,7 +88,8 @@ h1 {
 }
 #btn-help { right: 0; top: 22px; }
 #btn-mute { right: 0; top: 56px; font-size: 0.85rem; }
-#btn-help:hover, #btn-mute:hover { border-color: var(--pink); color: var(--pink); }
+#btn-analysis { right: 0; top: 90px; font-size: 0.78rem; text-decoration: none; }
+#btn-help:hover, #btn-mute:hover, #btn-analysis:hover { border-color: var(--pink); color: var(--pink); }
 #btn-mute.is-muted { color: var(--pink); border-color: var(--pink); }
 
 /* ── Stats bar ── */
@@ -712,6 +713,7 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
   <p class="subtitle">Bangumi Master &nbsp;·&nbsp; 哪部动画的评分更高？</p>
   <button id="btn-mute" title="静音切换">🔊</button>
   <button id="btn-help" title="玩法说明">?</button>
+  <a id="btn-analysis" href="analysis.html" title="数据分析">📊</a>
   <div class="stats">
     <div class="stat-chip">
       <span class="stat-val" id="st-lives">♥♥♥♥♥</span>
