@@ -1030,7 +1030,14 @@ function exportPng(){
 function updateRankSliderRange(){
   let maxRank=1;
   for(const a of allAnime){ if(a.rank && a.rank>maxRank) maxRank=a.rank; }
-  const ceil=Math.ceil(maxRank/100)*100;
+  const step=parseInt($('sl-rank-max').step)||50;
+  const sMin=parseInt($('sl-rank-min').min)||1;
+  // Slider has step=50 starting at min=1, so reachable values are 1, 51, 101, ...
+  // Pad the ceiling up to the next reachable step so value===max is attainable;
+  // otherwise the browser snaps down and rMaxIsTop never trips.
+  const raw=Math.ceil(maxRank/step)*step;
+  const offset=(raw - sMin) % step;
+  const ceil=offset===0 ? raw : raw + (step - offset);
   $('sl-rank-min').max=ceil;
   $('sl-rank-max').max=ceil;
   $('sl-rank-max').value=ceil;
