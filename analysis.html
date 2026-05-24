@@ -440,9 +440,14 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-app
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 640px) {
+  body { padding: 0 6px 32px; }
   h1 { font-size: 1.45rem; }
   .back-link, #btn-theme { position: static; display: inline-block; margin: 0 4px 8px; }
-  #chart { height: 380px; }
+  .chart-card { padding: 14px 6px 10px; border-radius: 12px; }
+  .chart-toolbar { top: 10px; right: 10px; }
+  /* Match desktop's ~2:1 aspect on phone instead of the fixed 380px (which
+     looked too tall on narrow viewports). */
+  #chart { height: auto; aspect-ratio: 16 / 10; min-height: 280px; }
   .hist-sub, .scatter-sub { margin-left: 0; width: 100%; flex-wrap: wrap; }
   #scatter-search { flex: 1; min-width: 140px; width: auto; }
 }
@@ -814,11 +819,17 @@ function setupChartHandlers(){
   chart.on('click', handleChartClick);
 }
 
+function isNarrow(){ return window.innerWidth <= 640; }
+
 function baseChartOpts(){
   const c=themeColors();
+  const narrow=isNarrow();
   return {
     color:[c.pink],
-    grid:{ left:50, right:24, top:32, bottom:48, containLabel:true },
+    // On phones we'd otherwise lose ~50px on the left and ~48px at the bottom
+    // to fixed axis labels — visible as "weird" whitespace. Shrink the grid
+    // insets when narrow; `containLabel` still grows them as needed.
+    grid:{ left:narrow?6:50, right:narrow?10:24, top:narrow?20:32, bottom:narrow?30:48, containLabel:true },
     tooltip:{ trigger:'axis', backgroundColor:c.surface, borderColor:c.border, textStyle:{ color:c.text, fontSize:12 } },
     textStyle:{ fontFamily:'-apple-system, "Segoe UI", system-ui, sans-serif', color:c.text }
   };
@@ -982,7 +993,7 @@ function renderTopTags(data){
   const c=themeColors();
   chart.setOption({
     ...baseChartOpts(),
-    grid:{ left:80, right:32, top:24, bottom:36, containLabel:true },
+    grid:{ left:isNarrow()?4:80, right:isNarrow()?28:32, top:24, bottom:isNarrow()?22:36, containLabel:true },
     tooltip:{ trigger:'axis', axisPointer:{ type:'shadow' }, backgroundColor:c.surface, borderColor:c.border, textStyle:{ color:c.text }, formatter:(p)=>`<strong>${p[0].name}</strong><br>动画数量 <strong>${p[0].value}</strong>` },
     xAxis:{ type:'value', name:'动画数量', nameLocation:'middle', nameGap:28, nameTextStyle:{ color:c.muted }, axisLabel:{ color:c.muted, fontSize:11 }, splitLine:{ lineStyle:{ color:c.grid } } },
     yAxis:{ type:'category', data:names, axisLabel:{ color:c.text, fontSize:11 }, axisLine:{ lineStyle:{ color:c.border } } },
@@ -1137,7 +1148,15 @@ async function init(){
   initControls();
   chart=echarts.init($('chart'));
   setupChartHandlers();
-  window.addEventListener('resize', ()=>chart && chart.resize());
+  let lastNarrow=isNarrow();
+  window.addEventListener('resize', ()=>{
+    if(!chart) return;
+    chart.resize();
+    // Grid insets differ between phone and desktop layouts; re-render when
+    // the viewport crosses the breakpoint (orientation change, devtools etc).
+    const narrow=isNarrow();
+    if(narrow!==lastNarrow){ lastNarrow=narrow; render(); }
+  });
 
   try{
     const [list, meta]=await Promise.all([
