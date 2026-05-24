@@ -1021,14 +1021,14 @@ function setMode(m){
   document.querySelectorAll('.mode-chip').forEach(c=>c.classList.toggle('active', c.dataset.mode===m));
   $('hist-sub').classList.toggle('show', m==='hist');
   $('scatter-sub').classList.toggle('show', m==='scatter');
-  // On touch devices a tap leaves the last-tapped point in ECharts' emphasis
-  // state (no mouseleave to clear it). Even though setOption(notMerge=true)
-  // wipes series, the highlight + tooltip dispatch state survives and shows
-  // up as a ghost dot/tooltip on the new chart. Clear them explicitly.
+  // Touch devices keep the last-tapped point in ECharts' highlight state with
+  // no mouseleave to clear it. dispatch+clear+setOption(notMerge) wasn't
+  // enough to fully drop it on mobile; dispose+re-init guarantees a fresh
+  // canvas with no carried internal state.
   if(chart){
-    chart.dispatchAction({ type:'downplay' });
-    chart.dispatchAction({ type:'hideTip' });
-    chart.clear();
+    chart.dispose();
+    chart=echarts.init($('chart'));
+    setupChartHandlers();
   }
   render();
 }
