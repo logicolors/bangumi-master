@@ -1,0 +1,44 @@
+name: Update anime data
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 20 * * 5"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-anime-data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch and export anime data
+        run: python scripts/update_anime_data.py
+        env:
+          BANGUMI_DB_PATH: ${{ runner.temp }}/anime.db
+          TZ: Asia/Shanghai
+
+      - name: Validate JSON
+        run: |
+          python -m json.tool data/anime_list.json > /dev/null
+          python -m json.tool data/anime_meta.json > /dev/null
+
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Update anime data"
+          file_pattern: data/anime_list.json data/anime_meta.json
