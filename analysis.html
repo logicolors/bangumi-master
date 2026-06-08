@@ -263,6 +263,14 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-app
 }
 .hist-sub .bin-slider input[type=range] { width: 130px; }
 .hist-sub .bin-val { color: var(--text); font-weight: 700; min-width: 5ch; text-align: right; font-variant-numeric: tabular-nums; }
+.hist-log-toggle {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.hist-log-toggle.show { display: flex; }
+.hist-log-toggle input { width: 14px; height: 14px; accent-color: var(--pink); cursor: pointer; }
 
 .scatter-sub {
   display: none;
@@ -542,10 +550,14 @@ input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-app
       </select>
     </label>
     <div class="bin-slider">
-      <span>分箱宽度</span>
+      <span id="hist-bin-label">分箱宽度</span>
       <input type="range" id="hist-bin" min="0" max="3" step="1" value="0">
       <span class="bin-val" id="hist-bin-val">0.1</span>
     </div>
+    <label class="hist-log-toggle" id="hist-log-wrap">
+      <input type="checkbox" id="hist-log-x" checked>
+      <span>X 轴对数</span>
+    </label>
   </div>
   <div class="scatter-sub" id="scatter-sub">
     <input type="text" id="scatter-search" placeholder="🔍 搜索动画名称（中文 / 原名）">
@@ -597,7 +609,7 @@ let chart=null;
 let currentMode='hist';
 
 // Drill-down state: populated by render*; consumed by chart 'click' handler.
-let histCtx=null;     // { field, startBin, binWidth, nBins, animesByBin: anime[][] }
+let histCtx=null;     // { field, bins, animesByBin: anime[][] }
 let scatterCtx=null;  // { animes: anime[] parallel to series data }
 let lastFiltered=[];  // current filtered set (for tags drill-down rescan)
 let selection=null;   // { title, items: anime[], page }
@@ -609,8 +621,9 @@ const HIST_BIN_OPTIONS={
   year:[1, 2, 5, 10],
   rank:[50, 100, 250, 500]
 };
+const HIST_LOG_BIN_COUNTS=[12, 16, 24, 32];
 const HIST_FIELD_LABEL={score:'评分', vote_count:'投票数', year:'年份', rank:'排名'};
-const HIST_DEFAULT_IDX={score:0, vote_count:1, year:0, rank:1};
+const HIST_DEFAULT_IDX={score:0, vote_count:2, year:0, rank:1};
 
 const EXCLUDE_CHECKBOXES=[
   ['cb-guochan','国产'],
@@ -782,11 +795,8 @@ function handleChartClick(params){
     const i=params.dataIndex;
     const animes=histCtx.animesByBin[i];
     if(!animes || !animes.length) return;
-    const b=histCtx.startBin + i*histCtx.binWidth;
-    const upper=b + histCtx.binWidth;
-    const range=(histCtx.field==='score')
-      ? `${b.toFixed(2)} – ${upper.toFixed(2)}`
-      : `${Math.round(b)} – ${Math.round(upper)}`;
+    const bin=histCtx.bins[i];
+    const range=formatHistRange(histCtx.field, bin.lo, bin.hi);
     setSelection(`${HIST_FIELD_LABEL[histCtx.field]} ${range}`, animes);
   }
   else if(currentMode==='scatter'){
@@ -837,9 +847,14 @@ function baseChartOpts(){
 
 function renderHistogram(data){
   const field=$('hist-field').value;
+  const logX=field==='vote_count' && $('hist-log-x').checked;
   const binOpts=HIST_BIN_OPTIONS[field];
-  const binWidth=binOpts[parseInt($('hist-bin').value)];
-  $('hist-bin-val').textContent=binWidth;
+  const binIdx=parseInt($('hist-bin').value);
+  const binWidth=binOpts[binIdx];
+  const logBinCount=HIST_LOG_BIN_COUNTS[binIdx];
+  $('hist-bin-label').textContent=logX?'分箱数量':'分箱宽度';
+  $('hist-bin-val').textContent=logX?logBinCount:binWidth;
+  $('hist-log-wrap').classList.toggle('show', field==='vote_count');
 
   const values=[], animeForValue=[];
   for(const a of data){
@@ -857,43 +872,122 @@ function renderHistogram(data){
   showEmpty(false);
 
   const lo=Math.min(...values), hi=Math.max(...values);
-  // EPS guards against IEEE-754 error: e.g. 5.5/0.1 = 54.999... in float, so
-  // Math.floor would give 54 (→ startBin 5.4) and shift every score by one bin.
-  const EPS=1e-9;
-  const startBin=Math.floor(lo/binWidth + EPS)*binWidth;
-  const endBin=Math.floor(hi/binWidth + EPS)*binWidth;
-  const nBins=Math.round((endBin-startBin)/binWidth)+1;
-  const counts=new Array(nBins).fill(0);
-  const animesByBin=Array.from({length:nBins}, ()=>[]);
-  for(let i=0;i<values.length;i++){
-    const raw=Math.floor((values[i]-startBin)/binWidth + EPS);
-    const idx=Math.min(nBins-1, Math.max(0, raw));
-    counts[idx]++;
-    animesByBin[idx].push(animeForValue[i]);
+  const bins=[];
+  const counts=[];
+  let animesByBin=[];
+  if(logX){
+    const minPositive=Math.max(1, lo);
+    const logLo=Math.log10(minPositive);
+    const logHi=Math.log10(Math.max(minPositive+1, hi));
+    const step=(logHi-logLo)/logBinCount;
+    for(let i=0;i<logBinCount;i++){
+      const edgeLo=Math.pow(10, logLo+i*step);
+      const edgeHi=i===logBinCount-1?hi+1e-9:Math.pow(10, logLo+(i+1)*step);
+      bins.push({ lo:edgeLo, hi:edgeHi });
+      counts.push(0);
+    }
+    animesByBin=Array.from({length:logBinCount}, ()=>[]);
+    for(let i=0;i<values.length;i++){
+      const raw=Math.floor((Math.log10(Math.max(1, values[i]))-logLo)/step);
+      const idx=Math.min(logBinCount-1, Math.max(0, raw));
+      counts[idx]++;
+      animesByBin[idx].push(animeForValue[i]);
+    }
+  }else{
+    // EPS guards against IEEE-754 error: e.g. 5.5/0.1 = 54.999... in float, so
+    // Math.floor would give 54 (→ startBin 5.4) and shift every score by one bin.
+    const EPS=1e-9;
+    const startBin=Math.floor(lo/binWidth + EPS)*binWidth;
+    const endBin=Math.floor(hi/binWidth + EPS)*binWidth;
+    const nBins=Math.round((endBin-startBin)/binWidth)+1;
+    for(let i=0;i<nBins;i++){
+      const b=startBin+i*binWidth;
+      bins.push({ lo:b, hi:b+binWidth });
+      counts.push(0);
+    }
+    animesByBin=Array.from({length:nBins}, ()=>[]);
+    for(let i=0;i<values.length;i++){
+      const raw=Math.floor((values[i]-startBin)/binWidth + EPS);
+      const idx=Math.min(nBins-1, Math.max(0, raw));
+      counts[idx]++;
+      animesByBin[idx].push(animeForValue[i]);
+    }
   }
-  histCtx={ field, startBin, binWidth, nBins, animesByBin };
+  histCtx={ field, bins, animesByBin };
   const labels=[];
-  for(let i=0;i<nBins;i++){
-    const b=startBin+i*binWidth;
-    if(field==='score') labels.push(b.toFixed(2));
-    else if(field==='year' || field==='rank') labels.push(String(Math.round(b)));
-    else labels.push(String(Math.round(b)));
+  const barData=[];
+  for(let i=0;i<bins.length;i++){
+    const bin=bins[i];
+    if(field==='score') labels.push(bin.lo.toFixed(2));
+    else labels.push(String(Math.round(bin.lo)));
+    barData.push(logX?[bin.lo, bin.hi, counts[i], i]:[Math.sqrt(bin.lo*bin.hi), counts[i]]);
   }
 
   const c=themeColors();
+  const xAxis=logX
+    ? { type:'log', name:HIST_FIELD_LABEL[field]+' (log)', nameLocation:'middle', nameGap:30, nameTextStyle:{ color:c.muted }, axisLabel:{ color:c.muted, fontSize:10 }, axisLine:{ lineStyle:{ color:c.border } }, splitLine:{ show:false } }
+    : { type:'category', data:labels, name:HIST_FIELD_LABEL[field], nameLocation:'middle', nameGap:30, nameTextStyle:{ color:c.muted }, axisLabel:{ color:c.muted, fontSize:10, interval:'auto' }, axisLine:{ lineStyle:{ color:c.border } } };
+  const series=logX
+    ? [{
+        type:'custom',
+        data:barData,
+        renderItem:(params, api)=>{
+          const lo=api.value(0), hi=api.value(1), count=api.value(2);
+          const p0=api.coord([lo, 0]);
+          const p1=api.coord([hi, count]);
+          const rawX=Math.min(p0[0], p1[0]);
+          const y=Math.min(p0[1], p1[1]);
+          const rawWidth=Math.abs(p1[0]-p0[0]);
+          const gap=Math.min(8, Math.max(1, rawWidth*0.08));
+          const x=rawX+gap/2;
+          const width=Math.max(1, rawWidth-gap);
+          const height=Math.abs(p0[1]-p1[1]);
+          const shape=echarts.graphic.clipRectByRect(
+            { x, y, width, height },
+            { x:params.coordSys.x, y:params.coordSys.y, width:params.coordSys.width, height:params.coordSys.height }
+          );
+          if(!shape)return;
+          shape.r=[3,3,0,0];
+          return {
+            type:'rect',
+            shape,
+            enterFrom:{ shape:{ x, y:p0[1], width, height:0, r:[3,3,0,0] } },
+            transition:['shape'],
+            style:api.style({ fill:c.pink }),
+            emphasis:{ style:{ fill:c.pinkDeep } }
+          };
+        },
+        encode:{ x:[0,1], y:2 },
+        animationDuration:400,
+        animationEasing:'cubicOut'
+      }]
+    : [{ type:'bar', data:counts, barWidth:'92%', itemStyle:{ color:c.pink, borderRadius:[3,3,0,0] }, emphasis:{ itemStyle:{ color:c.pinkDeep } } }];
   chart.setOption({
     ...baseChartOpts(),
     tooltip:{ trigger:'axis', axisPointer:{ type:'shadow' }, backgroundColor:c.surface, borderColor:c.border, textStyle:{ color:c.text }, formatter:(p)=>{
       const i=p[0].dataIndex;
-      const b=startBin+i*binWidth;
-      const upper=b+binWidth;
-      const range=(field==='score')?`${b.toFixed(2)} – ${upper.toFixed(2)}`:`${Math.round(b)} – ${Math.round(upper)}`;
-      return `<strong>${HIST_FIELD_LABEL[field]}</strong> ${range}<br>动画数量 <strong>${p[0].value}</strong>`;
+      const bin=bins[i];
+      const range=formatHistRange(field, bin.lo, bin.hi);
+      const count=Array.isArray(p[0].value)?p[0].value[2]??p[0].value[1]:p[0].value;
+      return `<strong>${HIST_FIELD_LABEL[field]}</strong> ${range}<br>动画数量 <strong>${count}</strong>`;
     }},
-    xAxis:{ type:'category', data:labels, name:HIST_FIELD_LABEL[field], nameLocation:'middle', nameGap:30, nameTextStyle:{ color:c.muted }, axisLabel:{ color:c.muted, fontSize:10, interval:'auto' }, axisLine:{ lineStyle:{ color:c.border } } },
-    yAxis:{ type:'value', name:'动画数量', nameTextStyle:{ color:c.muted, fontSize:11 }, axisLabel:{ color:c.muted, fontSize:11 }, splitLine:{ lineStyle:{ color:c.grid } } },
-    series:[{ type:'bar', data:counts, barWidth:'92%', itemStyle:{ color:c.pink, borderRadius:[3,3,0,0] }, emphasis:{ itemStyle:{ color:c.pinkDeep } } }]
+    xAxis,
+    yAxis:{ type:'value', name:'动画数量', nameTextStyle:{ color:c.muted, fontSize:11 }, axisLabel:{ color:c.muted, fontSize:11 }, axisLine:{ show:false }, axisTick:{ show:false }, splitLine:{ lineStyle:{ color:c.grid } } },
+    series
   }, true);
+}
+
+function updateHistControls(){
+  const f=$('hist-field').value;
+  const logX=f==='vote_count' && $('hist-log-x').checked;
+  $('hist-log-wrap').classList.toggle('show', f==='vote_count');
+  $('hist-bin-label').textContent=logX?'分箱数量':'分箱宽度';
+  $('hist-bin-val').textContent=logX?HIST_LOG_BIN_COUNTS[parseInt($('hist-bin').value)]:HIST_BIN_OPTIONS[f][parseInt($('hist-bin').value)];
+}
+
+function formatHistRange(field, lo, hi){
+  if(field==='score')return `${lo.toFixed(2)} – ${hi.toFixed(2)}`;
+  return `${Math.round(lo)} – ${Math.round(hi)}`;
 }
 
 function scatterMatches(a, q){
@@ -1078,14 +1172,21 @@ function initControls(){
   $('hist-field').addEventListener('change', ()=>{
     const f=$('hist-field').value;
     $('hist-bin').value=HIST_DEFAULT_IDX[f];
-    $('hist-bin-val').textContent=HIST_BIN_OPTIONS[f][HIST_DEFAULT_IDX[f]];
+    updateHistControls();
     render();
   });
   $('hist-bin').addEventListener('input', ()=>{
-    const f=$('hist-field').value;
-    $('hist-bin-val').textContent=HIST_BIN_OPTIONS[f][parseInt($('hist-bin').value)];
+    updateHistControls();
     render();
   });
+  $('hist-log-x').addEventListener('change', ()=>{
+    if($('hist-log-x').checked)$('hist-bin').value=2;
+    else $('hist-bin').value=HIST_DEFAULT_IDX[$('hist-field').value];
+    updateHistControls();
+    render();
+  });
+  if($('hist-field').value==='vote_count' && $('hist-log-x').checked)$('hist-bin').value=2;
+  updateHistControls();
 
   let scatterSearchTimer=null;
   $('scatter-search').addEventListener('input', ()=>{
