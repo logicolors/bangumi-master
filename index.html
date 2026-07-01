@@ -864,8 +864,9 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
 const LOCAL_SIGMA=0.30,SIGMA_MIN=0.10,GAUSS_MU=6.75,GAUSS_SIG=0.94;
 const SAMPLE_PARAMS={classic:{wc:0.30,p1:0.9,p2:0.5},timed:{wc:0.33,p1:1.0,p2:0.6}};
 const SITE_URL='bangumi-master.logicry.cc';
-const IMG_PROXY='https://wsrv.nl/?url=';
-function proxiedImg(u){return u?IMG_PROXY+u.replace(/^https?:\/\//,''):'';}
+const IMG_HOSTS=['lain.bangumi.lol','bgmimg.anibt.net','lain.bgm.tv'];
+function imgUrlAt(u,i){if(!u)return'';const m=u.match(/^https?:\/\/[^/]+(\/.*)$/);return m?'https://'+IMG_HOSTS[i]+m[1]:u;}
+function proxiedImg(u){return imgUrlAt(u,0);}
 const BANNED_IDS=new Set([150955,185761,190704,226677,231647,262162,278429,339266,303399,321117,381212,386475,236657,467909,488960,425587,449154,529995,518413,567417]);
 let DATA_DATE='';
 let allAnime=[],anime=[],animeByRank=[],rankPosById={},N=0;
@@ -1030,7 +1031,12 @@ function fillCard(s,e,sm){
   const img=$('img-'+s);
   img.style.opacity='0';
   img.onload=()=>{img.style.opacity='1';};
-  img.onerror=()=>{img.style.opacity='1';};
+  img.onerror=()=>{
+    const i=(img.dataset.hostIdx|0)+1;
+    if(e.image_url&&i<IMG_HOSTS.length){img.dataset.hostIdx=i;img.src=imgUrlAt(e.image_url,i);return;}
+    img.style.opacity='1';
+  };
+  img.dataset.hostIdx='0';
   img.src=proxiedImg(e.image_url);
   if(img.complete&&img.naturalWidth>0)img.style.opacity='1';
   $('name-'+s).textContent=e.name_cn||e.name;

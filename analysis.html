@@ -735,6 +735,10 @@ function escapeHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+const IMG_HOSTS=['lain.bangumi.lol','bgmimg.anibt.net','lain.bgm.tv'];
+function imgUrlAt(u,i){if(!u)return'';const m=u.match(/^https?:\/\/[^/]+(\/.*)$/);return m?'https://'+IMG_HOSTS[i]+m[1]:u;}
+function imgOnError(){const i=(this.dataset.hostIdx|0)+1;if(this.dataset.origUrl&&i<IMG_HOSTS.length){this.dataset.hostIdx=i;this.src=imgUrlAt(this.dataset.origUrl,i);}else{this.onerror=null;}}
+
 function clearSelection(){
   selection=null;
   $('selection-panel').style.display='none';
@@ -763,7 +767,7 @@ function renderSelection(){
   const list=$('sel-list');
   list.innerHTML=pageItems.map(a=>{
     const img=a.image_url
-      ? `<img class="sel-thumb" src="${escapeHtml(a.image_url)}" loading="lazy" alt="">`
+      ? `<img class="sel-thumb" src="${escapeHtml(imgUrlAt(a.image_url,0))}" data-orig-url="${escapeHtml(a.image_url)}" data-host-idx="0" loading="lazy" alt="" onerror="imgOnError.call(this)">`
       : `<div class="sel-thumb sel-thumb-empty"></div>`;
     const year=a.air_date?a.air_date.substring(0,4):'';
     const score=a.score!=null?a.score.toFixed(1):'—';
