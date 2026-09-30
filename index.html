@@ -1371,6 +1371,7 @@ function applyFilters(){
         nr=$('cb-recap').checked;
   const base=allAnime.filter(a=>{
     if(BANNED_IDS.has(a.id))return false;
+    if(a.rank==null)return false;
     if(a.vote_count<mv)return false;
     if(a.air_date){const am=a.air_date.substring(0,7);if(!nlb&&am<ym+'-01')return false;if(am>yx+'-12')return false;}
     if(DATA_DATE&&a.air_date&&a.air_date>DATA_DATE)return false;
