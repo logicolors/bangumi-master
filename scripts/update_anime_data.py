@@ -168,8 +168,8 @@ def export_json(conn):
     rows = conn.execute("""
         SELECT id, name, name_cn, score, rank, image_url, vote_count, tags, air_date
         FROM anime
-        WHERE vote_count >= 100
-          AND score IS NOT NULL
+        WHERE score > 0
+          AND vote_count >= 10
           AND COALESCE(nsfw, 0) = 0
         ORDER BY
             CASE WHEN rank IS NULL THEN 1 ELSE 0 END,
