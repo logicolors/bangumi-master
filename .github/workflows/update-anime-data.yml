@@ -38,7 +38,19 @@ jobs:
           python -m json.tool data/anime_meta.json > /dev/null
 
       - name: Commit changes
+        id: commit
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Update anime data"
           file_pattern: data/anime_list.json data/anime_meta.json
+
+      # AniCode (logicolors/anime-code) downloads this data when it builds, so
+      # ask its Cloudflare Workers Build to rerun. raw.githubusercontent.com
+      # caches files for about five minutes; wait so the build gets the new copy.
+      - name: Rebuild AniCode
+        if: steps.commit.outputs.changes_detected == 'true'
+        run: |
+          sleep 360
+          curl --fail-with-body -sS -X POST "$DEPLOY_HOOK_URL"
+        env:
+          DEPLOY_HOOK_URL: ${{ secrets.ANICODE_DEPLOY_HOOK_URL }}
