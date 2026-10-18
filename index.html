@@ -881,7 +881,7 @@ input[type=range] { width: 100%; accent-color: var(--pink); cursor: pointer; }
 const LOCAL_SIGMA=0.30,SIGMA_MIN=0.10,GAUSS_MU=6.75,GAUSS_SIG=0.94;
 const SAMPLE_PARAMS={classic:{wc:0.30,p1:0.9,p2:0.5},timed:{wc:0.33,p1:1.0,p2:0.6}};
 const SITE_URL='bangumi-master.logicry.cc';
-const IMG_HOSTS=['lain.bangumi.lol','bgmimg.anibt.net','lain.bgm.tv'];
+const IMG_HOSTS=['lain.bangumi.vip','bgmimg.anibt.net','lain.bgm.tv'];
 function imgUrlAt(u,i){if(!u)return'';const m=u.match(/^https?:\/\/[^/]+(\/.*)$/);return m?'https://'+IMG_HOSTS[i]+m[1]:u;}
 function proxiedImg(u){return imgUrlAt(u,0);}
 const BANNED_IDS=new Set([150955,185761,190704,226677,231647,262162,278429,339266,303399,321117,381212,386475,236657,467909,488960,425587,449154,529995,518413,567417]);

@@ -735,7 +735,7 @@ function escapeHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-const IMG_HOSTS=['lain.bangumi.lol','bgmimg.anibt.net','lain.bgm.tv'];
+const IMG_HOSTS=['lain.bangumi.vip','bgmimg.anibt.net','lain.bgm.tv'];
 function imgUrlAt(u,i){if(!u)return'';const m=u.match(/^https?:\/\/[^/]+(\/.*)$/);return m?'https://'+IMG_HOSTS[i]+m[1]:u;}
 function imgOnError(){const i=(this.dataset.hostIdx|0)+1;if(this.dataset.origUrl&&i<IMG_HOSTS.length){this.dataset.hostIdx=i;this.src=imgUrlAt(this.dataset.origUrl,i);}else{this.onerror=null;}}
 
